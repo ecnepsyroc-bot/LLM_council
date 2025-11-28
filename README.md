@@ -2,86 +2,196 @@
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+A multi-LLM deliberation system where multiple AI models collaborate to answer your questions. Instead of asking a single LLM, you can assemble your own "Council" of models that discuss, review each other's work, and synthesize a final response.
 
-In a bit more detail, here is what happens when you submit a query:
+## How It Works
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+When you submit a query, the council goes through three stages:
 
-## Vibe Code Alert
+1. **Stage 1: First Opinions** - Your query is sent to all council models in parallel. Each model provides its independent response, displayed in a tab view for comparison.
 
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+2. **Stage 2: Peer Review** - Each model reviews and ranks the other responses. Identities are anonymized (Response A, B, C...) to prevent bias. Models evaluate based on accuracy and insight.
 
-## Setup
+3. **Stage 3: Final Synthesis** - The designated Chairman model compiles all responses and rankings into a final, comprehensive answer.
 
-### 1. Install Dependencies
+## Quick Start
 
-The project uses [uv](https://docs.astral.sh/uv/) for project management.
+### Prerequisites
 
-**Backend:**
-```bash
-uv sync
-```
+- [Node.js](https://nodejs.org/) 18+
+- [Python](https://www.python.org/) 3.10+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [OpenRouter API Key](https://openrouter.ai/)
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 2. Configure API Key
-
-Create a `.env` file in the project root:
+### Installation
 
 ```bash
-OPENROUTER_API_KEY=sk-or-v1-...
+# Clone the repository
+git clone https://github.com/karpathy/llm-council.git
+cd llm-council
+
+# Install all dependencies
+npm run install:all
+
+# Or install separately:
+npm run install:backend   # Python dependencies via uv
+npm run install:frontend  # Node dependencies
 ```
 
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
+### Configuration
 
-### 3. Configure Models (Optional)
+1. Create a `.env` file in the project root:
 
-Edit `backend/config.py` to customize the council:
+```bash
+OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
+```
+
+2. (Optional) Customize the council in `backend/config.py`:
 
 ```python
+# Council members - add or remove models as desired
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "anthropic/claude-opus-4",
+    "openai/o1",
+    "google/gemini-2.5-pro-preview-06-05",
+    "x-ai/grok-3-beta",
+    "deepseek/deepseek-r1",
 ]
 
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+# The model that synthesizes the final answer
+CHAIRMAN_MODEL = "anthropic/claude-opus-4"
 ```
 
-## Running the Application
+Available models can be found at [openrouter.ai/models](https://openrouter.ai/models).
 
-**Option 1: Use the start script**
+### Running the Application
+
+**Option 1: Single Command (Recommended)**
+
 ```bash
-./start.sh
+npm run dev
 ```
 
-**Option 2: Run manually**
+This starts both backend and frontend concurrently.
+
+**Option 2: Separate Terminals**
 
 Terminal 1 (Backend):
 ```bash
-uv run python -m backend.main
+npm run dev:backend
+# or: uv run python -m backend.main
 ```
 
 Terminal 2 (Frontend):
 ```bash
-cd frontend
-npm run dev
+npm run dev:frontend
+# or: cd frontend && npm run dev
 ```
 
-Then open http://localhost:5173 in your browser.
+**Option 3: Use the start script**
 
-## Tech Stack
+```bash
+./start.sh
+```
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
-- **Frontend:** React + Vite, react-markdown for rendering
-- **Storage:** JSON files in `data/conversations/`
-- **Package Management:** uv for Python, npm for JavaScript
+### Access the Application
+
+Open http://localhost:5173 in your browser.
+
+## Architecture
+
+```
+llm-council/
+├── backend/              # FastAPI Python backend
+│   ├── main.py          # API endpoints
+│   ├── council.py       # 3-stage deliberation logic
+│   ├── openrouter.py    # OpenRouter API client
+│   ├── storage.py       # JSON file storage
+│   └── config.py        # Model configuration
+├── frontend/            # React + Vite frontend
+│   └── src/
+│       ├── App.tsx      # Main application
+│       ├── components/  # React components
+│       └── store/       # Zustand state management
+├── data/                # Conversation storage (gitignored)
+├── .idx/                # Google IDX configuration
+├── .vscode/             # VS Code configuration
+└── package.json         # Root scripts for convenience
+```
+
+### Port Assignments
+
+| Service  | Port | URL                    |
+|----------|------|------------------------|
+| Frontend | 5173 | http://localhost:5173  |
+| Backend  | 8001 | http://localhost:8001  |
+
+### Tech Stack
+
+- **Backend**: FastAPI, Python 3.10+, async httpx, Pydantic
+- **Frontend**: React 19, Vite, TypeScript, Tailwind CSS, Zustand
+- **API Integration**: OpenRouter (multi-provider LLM gateway)
+- **Storage**: JSON files in `data/conversations/`
+- **Package Management**: uv (Python), npm (JavaScript)
+
+## Development
+
+### IDE Setup
+
+The project includes configurations for:
+
+- **VS Code**: Open `llm-council.code-workspace` for multi-root workspace
+- **Google IDX**: `.idx/dev.nix` configures the cloud development environment
+
+### Available Scripts
+
+```bash
+npm run dev           # Start both frontend and backend
+npm run dev:frontend  # Start only frontend (port 5173)
+npm run dev:backend   # Start only backend (port 8001)
+npm run build         # Build frontend for production
+npm run lint          # Run ESLint on frontend
+npm run install:all   # Install all dependencies
+npm run clean         # Remove generated files
+```
+
+### VS Code Tasks
+
+Press `Ctrl+Shift+B` (or `Cmd+Shift+B` on Mac) to run the default build task, or access all tasks via the Command Palette (`Tasks: Run Task`).
+
+### Debug Configurations
+
+Launch configurations are provided for:
+- Backend: FastAPI with hot reload
+- Frontend: Vite dev server
+- Chrome: Debug frontend in browser
+- Full Stack: Run both simultaneously
+
+## API Reference
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Health check |
+| GET | `/api/conversations` | List all conversations |
+| POST | `/api/conversations` | Create new conversation |
+| GET | `/api/conversations/{id}` | Get conversation details |
+| POST | `/api/conversations/{id}/message` | Send message (batch) |
+| POST | `/api/conversations/{id}/message/stream` | Send message (streaming) |
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8001/api/conversations/{id}/message \
+  -H "Content-Type: application/json" \
+  -d '{"content": "What is the meaning of life?"}'
+```
+
+## Acknowledgments
+
+This project was vibe-coded as a Saturday hack by [Andrej Karpathy](https://x.com/karpathy) to explore and evaluate multiple LLMs side by side.
+
+## License
+
+MIT

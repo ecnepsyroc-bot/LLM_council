@@ -1,0 +1,38 @@
+{
+  "name": "llm-council",
+  "version": "0.1.0",
+  "description": "A multi-LLM deliberation system with peer review and synthesis",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"backend,frontend\" -c \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "uv run python -m backend.main",
+    "build": "npm run build --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "install:all": "uv sync && npm install --prefix frontend",
+    "install:backend": "uv sync",
+    "install:frontend": "npm install --prefix frontend",
+    "clean": "rm -rf frontend/node_modules frontend/dist .venv __pycache__ backend/__pycache__",
+    "preview": "npm run preview --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/karpathy/llm-council"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "council",
+    "openrouter",
+    "fastapi",
+    "react"
+  ],
+  "author": "Andrej Karpathy",
+  "license": "MIT"
+}
