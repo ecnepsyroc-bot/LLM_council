@@ -3,17 +3,6 @@ import { ChevronRight, ChevronLeft, Bot, Loader2, CheckCircle, AlertCircle, Circ
 import { useCouncilStore } from '../../store/councilStore';
 import type { ModelStatus } from '../../types';
 
-// Default council members - these should match your backend config
-const COUNCIL_MEMBERS = [
-  { id: 'openai/gpt-4o', name: 'GPT-4o' },
-  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
-  { id: 'google/gemini-2.0-flash-thinking-exp', name: 'Gemini 2.0 Flash' },
-  { id: 'x-ai/grok-2-1212', name: 'Grok 2' },
-  { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1' },
-];
-
-const CHAIRMAN = { id: 'google/gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro (Chairman)' };
-
 function getStatusIcon(status: ModelStatus) {
   switch (status) {
     case 'thinking':
@@ -62,7 +51,7 @@ function getStatusColor(status: ModelStatus) {
 }
 
 export function CouncilStatusPanel() {
-  const { councilStatus, deliberation, statusPanelCollapsed, toggleStatusPanel } = useCouncilStore();
+  const { councilStatus, deliberation, statusPanelCollapsed, toggleStatusPanel, config } = useCouncilStore();
 
   const getStageLabel = () => {
     switch (deliberation.stage) {
@@ -75,6 +64,18 @@ export function CouncilStatusPanel() {
       default:
         return 'Ready';
     }
+  };
+
+  if (!config) return null;
+
+  const councilMembers = config.council_models.map(id => ({
+    id,
+    name: id.split('/').pop() || id
+  }));
+
+  const chairman = {
+    id: config.chairman_model,
+    name: `${config.chairman_model.split('/').pop()} (Chairman)`
   };
 
   return (
@@ -105,7 +106,7 @@ export function CouncilStatusPanel() {
           Council Members
         </div>
         <div className="space-y-2">
-          {COUNCIL_MEMBERS.map((member) => {
+          {councilMembers.map((member) => {
             const status = councilStatus[member.id];
             const modelStatus = status?.status || 'idle';
 
@@ -137,7 +138,7 @@ export function CouncilStatusPanel() {
             Chairman
           </div>
           {(() => {
-            const status = councilStatus[CHAIRMAN.id];
+            const status = councilStatus[chairman.id];
             const modelStatus = status?.status || 'idle';
 
             return (
@@ -150,7 +151,7 @@ export function CouncilStatusPanel() {
               >
                 <div className="flex items-center gap-2">
                   <Bot size={16} className="text-yellow-500" />
-                  <span className="text-sm text-gray-200 flex-1 truncate">{CHAIRMAN.name}</span>
+                  <span className="text-sm text-gray-200 flex-1 truncate">{chairman.name}</span>
                   {getStatusIcon(modelStatus)}
                 </div>
                 <div className="text-xs text-gray-500 mt-1 ml-6">
@@ -167,7 +168,7 @@ export function CouncilStatusPanel() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-gray-800/50 rounded p-2">
             <div className="text-gray-500">Models</div>
-            <div className="text-white font-medium">{COUNCIL_MEMBERS.length + 1}</div>
+            <div className="text-white font-medium">{councilMembers.length + 1}</div>
           </div>
           <div className="bg-gray-800/50 rounded p-2">
             <div className="text-gray-500">Stage</div>

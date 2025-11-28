@@ -49,12 +49,12 @@ export interface DeliberationTurn {
 
 // Message types
 export interface UserMessage {
-  role: 'user';
+  role: "user";
   content: string;
 }
 
 export interface AssistantMessage {
-  role: 'assistant';
+  role: "assistant";
   stage1: ModelResponse[] | null;
   stage2: PeerEvaluation[] | null;
   stage3: ModelResponse | null;
@@ -78,7 +78,13 @@ export interface Conversation {
 }
 
 // Council status types
-export type ModelStatus = 'idle' | 'thinking' | 'responding' | 'evaluating' | 'finished' | 'error';
+export type ModelStatus =
+  | "idle"
+  | "thinking"
+  | "responding"
+  | "evaluating"
+  | "finished"
+  | "error";
 
 export interface CouncilMemberStatus {
   modelId: string;
@@ -110,6 +116,10 @@ export interface CouncilState {
   sidebarCollapsed: boolean;
   statusPanelCollapsed: boolean;
 
+  // Config
+  config: CouncilConfig | null;
+  fetchConfig: () => Promise<void>;
+
   // Actions
   setConversations: (conversations: Conversation[]) => void;
   setActiveConversation: (id: string | null) => void;
@@ -126,15 +136,15 @@ export interface CouncilState {
 
 // Streaming event types
 export type StreamEventType =
-  | 'stage1_start'
-  | 'stage1_complete'
-  | 'stage2_start'
-  | 'stage2_complete'
-  | 'stage3_start'
-  | 'stage3_complete'
-  | 'title_complete'
-  | 'complete'
-  | 'error';
+  | "stage1_start"
+  | "stage1_complete"
+  | "stage2_start"
+  | "stage2_complete"
+  | "stage3_start"
+  | "stage3_complete"
+  | "title_complete"
+  | "complete"
+  | "error";
 
 export interface StreamEvent {
   type: StreamEventType;
@@ -142,4 +152,9 @@ export interface StreamEvent {
   metadata?: Metadata;
   message?: string;
   title?: string;
+}
+
+export interface CouncilConfig {
+  council_models: string[];
+  chairman_model: string;
 }

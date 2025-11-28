@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { api } from '../api';
 import type {
   Conversation,
   Message,
@@ -8,6 +9,7 @@ import type {
   Synthesis,
   CouncilMemberStatus,
   CouncilState,
+  CouncilConfig,
 } from '../types';
 
 const initialDeliberation = {
@@ -27,6 +29,17 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
   isLoading: false,
   sidebarCollapsed: false,
   statusPanelCollapsed: false,
+
+  // Config
+  config: null,
+  fetchConfig: async () => {
+    try {
+      const config = await api.getConfig();
+      set({ config });
+    } catch (error) {
+      console.error('Failed to fetch config:', error);
+    }
+  },
 
   // Actions
   setConversations: (conversations: Conversation[]) => {

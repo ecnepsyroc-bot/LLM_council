@@ -118,4 +118,14 @@ export const api = {
       }
     }
   },
+  /**
+   * Get council configuration.
+   */
+  async getConfig(): Promise<{ council_models: string[]; chairman_model: string }> {
+    const response = await fetch(`${API_BASE}/api/config`);
+    if (!response.ok) {
+      throw new Error('Failed to get config');
+    }
+    return response.json();
+  },
 };
