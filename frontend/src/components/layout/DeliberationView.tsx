@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Bot } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownRenderer } from '../shared/MarkdownRenderer';
 import { useCouncilStore } from '../../store/councilStore';
 import { InputComposer } from '../shared/InputComposer';
 import { SidebarToggle } from './ConversationSidebar';
@@ -34,7 +34,7 @@ function Stage1View({ responses }: { responses: ModelResponse[] }) {
                 <span className="text-sm font-medium text-gray-300">{modelName}</span>
               </div>
               <div className="p-4 prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown>{resp.response}</ReactMarkdown>
+                <MarkdownRenderer content={resp.response} />
               </div>
             </motion.div>
           );
@@ -103,7 +103,7 @@ function Stage2View({ rankings, metadata }: { rankings: PeerEvaluation[]; metada
                 <span className="text-sm font-medium text-gray-300">{modelName}'s Evaluation</span>
               </div>
               <div className="p-4 prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown>{deanonymize(eval_.ranking)}</ReactMarkdown>
+                <MarkdownRenderer content={deanonymize(eval_.ranking)} />
               </div>
               {eval_.parsed_ranking?.length > 0 && (
                 <div className="px-4 py-2 bg-gray-900/50 border-t border-gray-700 text-xs text-gray-400">
@@ -150,7 +150,7 @@ function Stage3View({ synthesis }: { synthesis: ModelResponse }) {
           <span className="text-sm font-medium text-green-300">Chairman: {modelName}</span>
         </div>
         <div className="p-4 prose prose-invert prose-sm max-w-none">
-          <ReactMarkdown>{synthesis.response}</ReactMarkdown>
+          <MarkdownRenderer content={synthesis.response} />
         </div>
       </motion.div>
     </div>
@@ -200,7 +200,7 @@ function MessageView({ message }: { message: Message }) {
           <User size={16} className="text-white" />
         </div>
         <div className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-4 prose prose-invert prose-sm max-w-none">
-          <ReactMarkdown>{message.content}</ReactMarkdown>
+          <MarkdownRenderer content={message.content} />
         </div>
       </motion.div>
     );

@@ -21,7 +21,7 @@ export const api = {
   /**
    * Create a new conversation.
    */
-  async createConversation(): Promise<{ id: string; created_at: string }> {
+  async createConversation(): Promise<Conversation> {
     const response = await fetch(`${API_BASE}/api/conversations`, {
       method: 'POST',
       headers: {
@@ -125,6 +125,30 @@ export const api = {
     const response = await fetch(`${API_BASE}/api/config`);
     if (!response.ok) {
       throw new Error('Failed to get config');
+    }
+    return response.json();
+  },
+
+  /**
+   * Delete a conversation.
+   */
+  async deleteConversation(conversationId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
+    }
+  },
+
+  async updateConversation(conversationId: string, updates: { title?: string; is_pinned?: boolean; is_hidden?: boolean }): Promise<Conversation> {
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update conversation');
     }
     return response.json();
   },

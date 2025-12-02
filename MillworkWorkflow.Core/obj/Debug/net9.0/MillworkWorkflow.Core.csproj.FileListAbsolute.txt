@@ -1,0 +1,16 @@
+C:\Users\cory\llm-council\MillworkWorkflow.Core\bin\Debug\net9.0\MillworkWorkflow.Core.deps.json
+C:\Users\cory\llm-council\MillworkWorkflow.Core\bin\Debug\net9.0\MillworkWorkflow.Core.dll
+C:\Users\cory\llm-council\MillworkWorkflow.Core\bin\Debug\net9.0\MillworkWorkflow.Core.pdb
+C:\Users\cory\llm-council\MillworkWorkflow.Core\bin\Debug\net9.0\Luxify.Shared.dll
+C:\Users\cory\llm-council\MillworkWorkflow.Core\bin\Debug\net9.0\Luxify.Shared.pdb
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.csproj.AssemblyReference.cache
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.AssemblyInfoInputs.cache
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.AssemblyInfo.cs
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.csproj.CoreCompileInputs.cache
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.sourcelink.json
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\Millwork.759D7676.Up2Date
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.dll
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\refint\MillworkWorkflow.Core.dll
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\MillworkWorkflow.Core.pdb
+C:\Users\cory\llm-council\MillworkWorkflow.Core\obj\Debug\net9.0\ref\MillworkWorkflow.Core.dll

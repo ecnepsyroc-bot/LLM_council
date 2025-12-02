@@ -40,6 +40,8 @@ class ConversationMetadata(BaseModel):
     id: str
     created_at: str
     title: str
+    is_pinned: bool = False
+    is_hidden: bool = False
     message_count: int
 
 
@@ -48,7 +50,16 @@ class Conversation(BaseModel):
     id: str
     created_at: str
     title: str
+    is_pinned: bool = False
+    is_hidden: bool = False
     messages: List[Dict[str, Any]]
+
+
+class UpdateConversationRequest(BaseModel):
+    """Request to update conversation fields."""
+    title: str | None = None
+    is_pinned: bool | None = None
+    is_hidden: bool | None = None
 
 
 @app.get("/")
@@ -89,6 +100,25 @@ async def get_conversation(conversation_id: str):
     return conversation
 
 
+@app.patch("/api/conversations/{conversation_id}")
+async def update_conversation(conversation_id: str, request: UpdateConversationRequest):
+    """Update conversation fields (title, pin, hide)."""
+    conversation = storage.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if request.title is not None:
+        storage.update_conversation_field(conversation_id, "title", request.title)
+    
+    if request.is_pinned is not None:
+        storage.update_conversation_field(conversation_id, "is_pinned", request.is_pinned)
+        
+    if request.is_hidden is not None:
+        storage.update_conversation_field(conversation_id, "is_hidden", request.is_hidden)
+
+    return storage.get_conversation(conversation_id)
+
+
 @app.post("/api/conversations/{conversation_id}/message")
 async def send_message(conversation_id: str, request: SendMessageRequest):
     """
@@ -109,7 +139,7 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     # If this is the first message, generate a title
     if is_first_message:
         title = await generate_conversation_title(request.content)
-        storage.update_conversation_title(conversation_id, title)
+        storage.update_conversation_field(conversation_id, "title", title)
 
     # Run the 3-stage council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
@@ -176,7 +206,7 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             # Wait for title generation if it was started
             if title_task:
                 title = await title_task
-                storage.update_conversation_title(conversation_id, title)
+                storage.update_conversation_field(conversation_id, "title", title)
                 yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
 
             # Save complete assistant message
@@ -202,6 +232,15 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             "Connection": "keep-alive",
         }
     )
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation."""
+    success = storage.delete_conversation(conversation_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"status": "ok", "id": conversation_id}
 
 
 if __name__ == "__main__":

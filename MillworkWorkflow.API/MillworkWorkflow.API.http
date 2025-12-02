@@ -1,0 +1,6 @@
+@MillworkWorkflow.API_HostAddress = http://localhost:5160
+
+GET {{MillworkWorkflow.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

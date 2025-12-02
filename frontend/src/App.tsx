@@ -4,6 +4,7 @@ import { DeliberationView } from './components/layout/DeliberationView';
 import { useCouncilStore } from './store/councilStore';
 
 function App() {
+  // Force rebuild
   const { fetchConfig } = useCouncilStore();
 
   useEffect(() => {

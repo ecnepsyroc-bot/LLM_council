@@ -1,0 +1,12 @@
+C:\Users\cory\llm-council\Luxify.Shared\bin\Debug\net9.0\Luxify.Shared.deps.json
+C:\Users\cory\llm-council\Luxify.Shared\bin\Debug\net9.0\Luxify.Shared.dll
+C:\Users\cory\llm-council\Luxify.Shared\bin\Debug\net9.0\Luxify.Shared.pdb
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.AssemblyInfoInputs.cache
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.AssemblyInfo.cs
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.csproj.CoreCompileInputs.cache
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.sourcelink.json
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.dll
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\refint\Luxify.Shared.dll
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\Luxify.Shared.pdb
+C:\Users\cory\llm-council\Luxify.Shared\obj\Debug\net9.0\ref\Luxify.Shared.dll

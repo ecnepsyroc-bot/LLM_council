@@ -24,6 +24,7 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
   conversations: [],
   activeConversationId: null,
   activeConversation: null,
+  showHidden: false,
   deliberation: initialDeliberation,
   councilStatus: {},
   isLoading: false,
@@ -64,6 +65,51 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
         ? conversation
         : state.activeConversation,
     }));
+  },
+
+  deleteConversation: async (id: string) => {
+    try {
+      await api.deleteConversation(id);
+      set(state => ({
+        conversations: state.conversations.filter(c => c.id !== id),
+        activeConversationId: state.activeConversationId === id ? null : state.activeConversationId,
+        activeConversation: state.activeConversationId === id ? null : state.activeConversation,
+      }));
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
+  },
+
+  togglePin: async (id: string) => {
+    const conversation = get().conversations.find(c => c.id === id);
+    if (!conversation) return;
+
+    try {
+      const updated = await api.updateConversation(id, { is_pinned: !conversation.is_pinned });
+      set(state => ({
+        conversations: state.conversations.map(c => c.id === id ? updated : c)
+      }));
+    } catch (error) {
+      console.error('Failed to toggle pin:', error);
+    }
+  },
+
+  toggleHide: async (id: string) => {
+    const conversation = get().conversations.find(c => c.id === id);
+    if (!conversation) return;
+
+    try {
+      const updated = await api.updateConversation(id, { is_hidden: !conversation.is_hidden });
+      set(state => ({
+        conversations: state.conversations.map(c => c.id === id ? updated : c)
+      }));
+    } catch (error) {
+      console.error('Failed to toggle hide:', error);
+    }
+  },
+
+  toggleShowHidden: () => {
+    set(state => ({ showHidden: !state.showHidden }));
   },
 
   addMessage: (message: Message) => {

@@ -34,6 +34,9 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
         "id": conversation_id,
         "created_at": datetime.utcnow().isoformat(),
         "title": "New Conversation",
+        "is_pinned": False,
+        "is_hidden": False,
+        "message_count": 0,
         "messages": []
     }
 
@@ -98,6 +101,8 @@ def list_conversations() -> List[Dict[str, Any]]:
                     "id": data["id"],
                     "created_at": data["created_at"],
                     "title": data.get("title", "New Conversation"),
+                    "is_pinned": data.get("is_pinned", False),
+                    "is_hidden": data.get("is_hidden", False),
                     "message_count": len(data["messages"])
                 })
 
@@ -156,17 +161,43 @@ def add_assistant_message(
     save_conversation(conversation)
 
 
-def update_conversation_title(conversation_id: str, title: str):
+    conversation["title"] = title
+    save_conversation(conversation)
+
+
+def update_conversation_field(conversation_id: str, field: str, value: Any) -> bool:
     """
-    Update the title of a conversation.
+    Update a specific field of a conversation.
 
     Args:
         conversation_id: Conversation identifier
-        title: New title for the conversation
+        field: Field name to update
+        value: New value
+
+    Returns:
+        True if updated, False if not found
     """
     conversation = get_conversation(conversation_id)
     if conversation is None:
-        raise ValueError(f"Conversation {conversation_id} not found")
+        return False
 
-    conversation["title"] = title
+    conversation[field] = value
     save_conversation(conversation)
+    return True
+
+
+def delete_conversation(conversation_id: str) -> bool:
+    """
+    Delete a conversation.
+
+    Args:
+        conversation_id: Conversation identifier
+
+    Returns:
+        True if deleted, False if not found
+    """
+    path = get_conversation_path(conversation_id)
+    if os.path.exists(path):
+        os.remove(path)
+        return True
+    return False

@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "MillworkWorkflow.Data/1.0.0": {
+        "dependencies": {
+          "Luxify.Shared": "1.0.0",
+          "MillworkWorkflow.Core": "1.0.0"
+        },
+        "runtime": {
+          "MillworkWorkflow.Data.dll": {}
+        }
+      },
+      "Luxify.Shared/1.0.0": {
+        "runtime": {
+          "Luxify.Shared.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "MillworkWorkflow.Core/1.0.0": {
+        "dependencies": {
+          "Luxify.Shared": "1.0.0"
+        },
+        "runtime": {
+          "MillworkWorkflow.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MillworkWorkflow.Data/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Luxify.Shared/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MillworkWorkflow.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -74,6 +74,8 @@ export interface Conversation {
   title: string;
   created_at: string;
   message_count: number;
+  is_pinned?: boolean;
+  is_hidden?: boolean;
   messages?: Message[];
 }
 
@@ -99,6 +101,7 @@ export interface CouncilState {
   conversations: Conversation[];
   activeConversationId: string | null;
   activeConversation: Conversation | null;
+  showHidden: boolean;
 
   // Deliberation state
   deliberation: {
@@ -124,6 +127,10 @@ export interface CouncilState {
   setConversations: (conversations: Conversation[]) => void;
   setActiveConversation: (id: string | null) => void;
   updateConversation: (conversation: Conversation) => void;
+  deleteConversation: (id: string) => Promise<void>;
+  togglePin: (id: string) => Promise<void>;
+  toggleHide: (id: string) => Promise<void>;
+  toggleShowHidden: () => void;
   addMessage: (message: Message) => void;
   updateLastMessage: (updates: Partial<AssistantMessage>) => void;
   setStage: (stage: 0 | 1 | 2 | 3) => void;
