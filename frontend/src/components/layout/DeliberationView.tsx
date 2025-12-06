@@ -199,8 +199,17 @@ function MessageView({ message }: { message: Message }) {
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
           <User size={16} className="text-white" />
         </div>
-        <div className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-4 prose prose-invert prose-sm max-w-none">
-          <MarkdownRenderer content={message.content} />
+        <div className="flex-1 space-y-2">
+          {message.images && message.images.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto">
+              {message.images.map((img, idx) => (
+                <img key={idx} src={img} alt="User upload" className="h-48 w-auto rounded-lg border border-gray-700" />
+              ))}
+            </div>
+          )}
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 prose prose-invert prose-sm max-w-none">
+            <MarkdownRenderer content={message.content} />
+          </div>
         </div>
       </motion.div>
     );
@@ -249,13 +258,13 @@ export function DeliberationView() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeConversation?.messages]);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, images: string[] = []) => {
     if (!activeConversationId) return;
 
     setLoading(true);
 
     // Add user message
-    addMessage({ role: 'user', content });
+    addMessage({ role: 'user', content, images });
 
     // Add placeholder assistant message
     addMessage({

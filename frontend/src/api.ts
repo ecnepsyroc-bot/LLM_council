@@ -51,7 +51,7 @@ export const api = {
   /**
    * Send a message in a conversation (non-streaming).
    */
-  async sendMessage(conversationId: string, content: string): Promise<unknown> {
+  async sendMessage(conversationId: string, content: string, images: string[] = []): Promise<unknown> {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}/message`,
       {
@@ -59,7 +59,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, images }),
       }
     );
     if (!response.ok) {
@@ -74,7 +74,8 @@ export const api = {
   async sendMessageStream(
     conversationId: string,
     content: string,
-    onEvent: (eventType: StreamEventType, event: StreamEvent) => void
+    onEvent: (eventType: StreamEventType, event: StreamEvent) => void,
+    images: string[] = []
   ): Promise<void> {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}/message/stream`,
@@ -83,7 +84,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, images }),
       }
     );
 

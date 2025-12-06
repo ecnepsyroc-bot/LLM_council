@@ -106,29 +106,32 @@ def list_conversations() -> List[Dict[str, Any]]:
                     "message_count": len(data["messages"])
                 })
 
-    # Sort by creation time, newest first
-    conversations.sort(key=lambda x: x["created_at"], reverse=True)
-
     return conversations
 
 
-def add_user_message(conversation_id: str, content: str):
+
+
+def add_user_message(conversation_id: str, content: str, images: List[str] = None):
     """
     Add a user message to a conversation.
 
     Args:
         conversation_id: Conversation identifier
-        content: User message content
+        content: Message content
+        images: Optional list of base64 image data
     """
     conversation = get_conversation(conversation_id)
     if conversation is None:
         raise ValueError(f"Conversation {conversation_id} not found")
 
-    conversation["messages"].append({
+    message = {
         "role": "user",
         "content": content
-    })
+    }
+    if images:
+        message["images"] = images
 
+    conversation["messages"].append(message)
     save_conversation(conversation)
 
 
@@ -161,8 +164,7 @@ def add_assistant_message(
     save_conversation(conversation)
 
 
-    conversation["title"] = title
-    save_conversation(conversation)
+
 
 
 def update_conversation_field(conversation_id: str, field: str, value: Any) -> bool:

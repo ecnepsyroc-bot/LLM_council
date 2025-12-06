@@ -1,0 +1,126 @@
+{
+  "features": [
+    {
+      "id": "F001",
+      "category": "functional",
+      "description": "User can submit a question and receive parallel responses from multiple LLMs (Stage 1)",
+      "dependencies": [],
+      "steps": [
+        "Enter a question in the input composer",
+        "Submit the question",
+        "View individual model responses in tabbed interface",
+        "Verify all configured council models responded"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Core Stage 1 functionality - parallel queries via OpenRouter API"
+    },
+    {
+      "id": "F002",
+      "category": "functional",
+      "description": "User can view anonymized peer rankings from each model (Stage 2)",
+      "dependencies": ["F001"],
+      "steps": [
+        "After Stage 1 completes, Stage 2 automatically runs",
+        "Each model receives anonymized responses (Response A, B, C...)",
+        "View each model's evaluation and ranking in tabs",
+        "Verify parsed rankings are extracted correctly",
+        "View aggregate rankings showing average position"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Anonymization prevents models from playing favorites"
+    },
+    {
+      "id": "F003",
+      "category": "functional",
+      "description": "User can view the chairman's synthesized final answer (Stage 3)",
+      "dependencies": ["F002"],
+      "steps": [
+        "After Stage 2 completes, chairman synthesizes final answer",
+        "View final answer with green-tinted background",
+        "Verify synthesis incorporates rankings and responses"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Chairman model configured in backend/config.py"
+    },
+    {
+      "id": "F004",
+      "category": "functional",
+      "description": "User can create, view, and switch between multiple conversations",
+      "dependencies": [],
+      "steps": [
+        "Create a new conversation",
+        "Submit questions to build conversation history",
+        "Switch to a different conversation",
+        "Verify previous conversation is preserved",
+        "Return to original conversation and verify history"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Conversations stored as JSON in data/conversations/"
+    },
+    {
+      "id": "F005",
+      "category": "functional",
+      "description": "User can configure council models dynamically via UI",
+      "dependencies": ["F001"],
+      "steps": [
+        "Access council configuration panel",
+        "Add or remove models from the council",
+        "Change the chairman model",
+        "Submit a question and verify new configuration is used",
+        "Verify configuration persists across page refreshes"
+      ],
+      "passes": false,
+      "lastTested": null,
+      "notes": "Recently implemented (commit 419184f) - needs end-to-end testing"
+    },
+    {
+      "id": "F006",
+      "category": "functional",
+      "description": "User can view markdown-formatted responses with proper rendering",
+      "dependencies": ["F001"],
+      "steps": [
+        "Submit a question that would generate markdown (code, lists, etc.)",
+        "Verify code blocks render with syntax highlighting",
+        "Verify lists, headers, and other markdown elements render correctly"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Uses ReactMarkdown with markdown-content class for styling"
+    },
+    {
+      "id": "F007",
+      "category": "reliability",
+      "description": "System gracefully handles individual model failures without failing entire request",
+      "dependencies": ["F001"],
+      "steps": [
+        "Configure a council with an invalid/unavailable model",
+        "Submit a question",
+        "Verify successful responses are still displayed",
+        "Verify failed model is indicated but doesn't crash the app"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Graceful degradation - continues with successful responses"
+    },
+    {
+      "id": "F008",
+      "category": "functional",
+      "description": "User can validate ranking parsing by viewing raw evaluation and extracted ranking",
+      "dependencies": ["F002"],
+      "steps": [
+        "Complete a deliberation through Stage 2",
+        "View a model's evaluation tab",
+        "Verify raw evaluation text is visible",
+        "Verify 'Extracted Ranking' section shows parsed results",
+        "Compare raw text FINAL RANKING section with parsed output"
+      ],
+      "passes": true,
+      "lastTested": "2025-12-05",
+      "notes": "Transparency feature - users can validate system's interpretation"
+    }
+  ]
+}

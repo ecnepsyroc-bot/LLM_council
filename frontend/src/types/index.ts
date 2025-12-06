@@ -51,6 +51,7 @@ export interface DeliberationTurn {
 export interface UserMessage {
   role: "user";
   content: string;
+  images?: string[];
 }
 
 export interface AssistantMessage {

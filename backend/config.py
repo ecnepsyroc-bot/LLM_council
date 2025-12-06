@@ -25,4 +25,5 @@ CHAIRMAN_MODEL = "anthropic/claude-opus-4"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Data directory for conversation storage
-DATA_DIR = "data/conversations"
+# Data directory for conversation storage
+DATA_DIR = str(Path(__file__).resolve().parent.parent / "data" / "conversations")

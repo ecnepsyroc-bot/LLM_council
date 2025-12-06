@@ -1,0 +1,26 @@
+=== PROGRESS LOG ===
+Last updated: 2025-12-05
+Current focus: Foundation setup and project documentation
+
+RECENT SESSIONS:
+- 2025-12-05: Added FOUNDATION.md and scaffolded supporting files (init.sh, claude-progress.txt, features.json, .architecture.md)
+- 2025-12-05: Implemented dynamic council configuration (commit 419184f)
+- Previous: Migrated frontend to TypeScript, added root orchestration scripts (commit 8625779)
+
+KNOWN ISSUES:
+- Uncommitted changes in backend/main.py, backend/storage.py, frontend components
+- start.ps1 is untracked
+
+NEXT PRIORITIES:
+1. Review and commit pending changes
+2. Test dynamic council configuration end-to-end
+3. Document new council configuration feature in features.json
+
+=== SESSION NOTES ===
+
+[2025-12-05]
+- Project follows 3-stage deliberation system: collect responses, anonymized peer review, chairman synthesis
+- Backend: FastAPI on port 8001
+- Frontend: React + TypeScript + Vite on port 5173
+- Data stored in data/conversations/ as JSON
+- Foundation document added to establish development patterns
