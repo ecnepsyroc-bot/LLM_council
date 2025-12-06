@@ -77,12 +77,14 @@ This starts both backend and frontend concurrently.
 **Option 2: Separate Terminals**
 
 Terminal 1 (Backend):
+
 ```bash
 npm run dev:backend
 # or: uv run python -m backend.main
 ```
 
 Terminal 2 (Frontend):
+
 ```bash
 npm run dev:frontend
 # or: cd frontend && npm run dev
@@ -93,6 +95,20 @@ npm run dev:frontend
 ```bash
 ./start.sh
 ```
+
+**Option 4: Windows System Tray App** ⭐
+
+Double-click `LLMCouncil.vbs` (or `LLMCouncil.bat`) to run as a system tray application:
+
+- 🔔 Tray icon with context menu
+- 🌐 Double-click to open in browser
+- 🔄 Right-click → Restart Services
+- ❌ Right-click → Exit to cleanly stop
+
+You can:
+
+- **Pin to Start Menu**: Right-click `LLMCouncil.vbs` → Pin to Start
+- **Add to Startup**: Press `Win+R`, type `shell:startup`, copy/paste a shortcut to `LLMCouncil.vbs`
 
 ### Access the Application
 
@@ -121,10 +137,10 @@ llm-council/
 
 ### Port Assignments
 
-| Service  | Port | URL                    |
-|----------|------|------------------------|
-| Frontend | 5173 | http://localhost:5173  |
-| Backend  | 8001 | http://localhost:8001  |
+| Service  | Port | URL                   |
+| -------- | ---- | --------------------- |
+| Frontend | 5173 | http://localhost:5173 |
+| Backend  | 8001 | http://localhost:8001 |
 
 ### Tech Stack
 
@@ -162,6 +178,7 @@ Press `Ctrl+Shift+B` (or `Cmd+Shift+B` on Mac) to run the default build task, or
 ### Debug Configurations
 
 Launch configurations are provided for:
+
 - Backend: FastAPI with hot reload
 - Frontend: Vite dev server
 - Chrome: Debug frontend in browser
@@ -171,14 +188,14 @@ Launch configurations are provided for:
 
 ### Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Health check |
-| GET | `/api/conversations` | List all conversations |
-| POST | `/api/conversations` | Create new conversation |
-| GET | `/api/conversations/{id}` | Get conversation details |
-| POST | `/api/conversations/{id}/message` | Send message (batch) |
-| POST | `/api/conversations/{id}/message/stream` | Send message (streaming) |
+| Method | Endpoint                                 | Description              |
+| ------ | ---------------------------------------- | ------------------------ |
+| GET    | `/`                                      | Health check             |
+| GET    | `/api/conversations`                     | List all conversations   |
+| POST   | `/api/conversations`                     | Create new conversation  |
+| GET    | `/api/conversations/{id}`                | Get conversation details |
+| POST   | `/api/conversations/{id}/message`        | Send message (batch)     |
+| POST   | `/api/conversations/{id}/message/stream` | Send message (streaming) |
 
 ### Example Request
 
