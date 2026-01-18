@@ -130,7 +130,7 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
     });
   },
 
-  updateLastMessage: (updates: Partial<AssistantMessage>) => {
+  updateLastMessage: (updates: Partial<AssistantMessage> | ((prev: AssistantMessage) => Partial<AssistantMessage>)) => {
     set(state => {
       if (!state.activeConversation?.messages?.length) return state;
 
@@ -140,7 +140,12 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
 
       if (lastMessage?.role !== 'assistant') return state;
 
-      messages[lastIndex] = { ...lastMessage, ...updates } as AssistantMessage;
+      // Support both object and function updates
+      const resolvedUpdates = typeof updates === 'function'
+        ? updates(lastMessage as AssistantMessage)
+        : updates;
+
+      messages[lastIndex] = { ...lastMessage, ...resolvedUpdates } as AssistantMessage;
 
       const updatedConversation = {
         ...state.activeConversation,

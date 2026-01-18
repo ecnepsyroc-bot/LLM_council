@@ -1,7 +1,8 @@
 """OpenRouter API client for making LLM requests."""
 
 import httpx
-from typing import List, Dict, Any, Optional
+import json
+from typing import List, Dict, Any, Optional, AsyncGenerator
 from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
 
 
@@ -77,3 +78,79 @@ async def query_models_parallel(
 
     # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
+
+
+async def stream_model_response(
+    model: str,
+    messages: List[Dict[str, str]],
+    timeout: float = 120.0
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Stream a response from a single model via OpenRouter API.
+
+    Args:
+        model: OpenRouter model identifier
+        messages: List of message dicts with 'role' and 'content'
+        timeout: Request timeout in seconds
+
+    Yields:
+        Dict with 'type' ('chunk' or 'done') and 'content' or 'full_content'
+    """
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+    }
+
+    full_content = ""
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST",
+                OPENROUTER_API_URL,
+                headers=headers,
+                json=payload
+            ) as response:
+                response.raise_for_status()
+
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # Remove "data: " prefix
+
+                        if data_str == "[DONE]":
+                            yield {
+                                "type": "done",
+                                "model": model,
+                                "full_content": full_content
+                            }
+                            break
+
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+
+                            if content:
+                                full_content += content
+                                yield {
+                                    "type": "chunk",
+                                    "model": model,
+                                    "content": content,
+                                    "accumulated": full_content
+                                }
+                        except json.JSONDecodeError:
+                            continue
+
+    except Exception as e:
+        print(f"Error streaming model {model}: {e}")
+        yield {
+            "type": "error",
+            "model": model,
+            "error": str(e)
+        }

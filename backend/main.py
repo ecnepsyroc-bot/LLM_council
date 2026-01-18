@@ -10,7 +10,16 @@ import json
 import asyncio
 
 from . import storage
-from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .council import (
+    run_full_council,
+    generate_conversation_title,
+    stage1_collect_responses,
+    stage1_stream_responses,
+    stage2_collect_rankings,
+    stage3_synthesize_final,
+    calculate_aggregate_rankings,
+    detect_consensus,
+)
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
 app = FastAPI(title="LLM Council API")
@@ -18,8 +27,8 @@ app = FastAPI(title="LLM Council API")
 # Enable CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -168,7 +177,7 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
 async def send_message_stream(conversation_id: str, request: SendMessageRequest):
     """
     Send a message and stream the 3-stage council process.
-    Returns Server-Sent Events as each stage completes.
+    Returns Server-Sent Events with real-time updates for each model in Stage 1.
     """
     # Check if conversation exists
     conversation = storage.get_conversation(conversation_id)
@@ -188,16 +197,30 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(request.content))
 
-            # Stage 1: Collect responses
+            # Stage 1: Stream responses from all models in parallel
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+
+            stage1_results = []
+            async for event in stage1_stream_responses(request.content):
+                if event["type"] == "model_start":
+                    yield f"data: {json.dumps({'type': 'model_start', 'model': event['model']})}\n\n"
+                elif event["type"] == "model_chunk":
+                    yield f"data: {json.dumps({'type': 'model_chunk', 'model': event['model'], 'content': event['content'], 'accumulated': event['accumulated']})}\n\n"
+                elif event["type"] == "model_done":
+                    yield f"data: {json.dumps({'type': 'model_done', 'model': event['model'], 'response': event['response']})}\n\n"
+                elif event["type"] == "model_error":
+                    yield f"data: {json.dumps({'type': 'model_error', 'model': event['model'], 'error': event.get('error', 'Unknown error')})}\n\n"
+                elif event["type"] == "all_done":
+                    stage1_results = event["results"]
+
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
             stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
+            consensus = detect_consensus(stage2_results, label_to_model)
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings, 'consensus': consensus}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"

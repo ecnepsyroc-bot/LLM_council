@@ -8,9 +8,11 @@ export interface Model {
 export interface ModelResponse {
   model: string;
   response: string;
+  confidence?: number | null;  // 1-10 confidence score
   responseTime?: number;
   tokenCount?: number;
   isStreaming?: boolean;
+  streamingContent?: string;  // Accumulated content during streaming
 }
 
 export interface PeerEvaluation {
@@ -25,9 +27,18 @@ export interface AggregateRanking {
   rankings_count: number;
 }
 
+export interface Consensus {
+  has_consensus: boolean;
+  agreement_score: number;  // 0.0 to 1.0
+  top_model: string | null;
+  top_votes: number;
+  total_voters: number;
+}
+
 export interface Metadata {
   label_to_model: Record<string, string>;
   aggregate_rankings: AggregateRanking[];
+  consensus?: Consensus;
 }
 
 export interface Synthesis {
@@ -65,6 +76,12 @@ export interface AssistantMessage {
     stage2: boolean;
     stage3: boolean;
   };
+  // Per-model streaming state
+  streamingResponses?: Record<string, {
+    content: string;
+    isStreaming: boolean;
+    isDone: boolean;
+  }>;
 }
 
 export type Message = UserMessage | AssistantMessage;
@@ -133,7 +150,7 @@ export interface CouncilState {
   toggleHide: (id: string) => Promise<void>;
   toggleShowHidden: () => void;
   addMessage: (message: Message) => void;
-  updateLastMessage: (updates: Partial<AssistantMessage>) => void;
+  updateLastMessage: (updates: Partial<AssistantMessage> | ((prev: AssistantMessage) => Partial<AssistantMessage>)) => void;
   setStage: (stage: 0 | 1 | 2 | 3) => void;
   setModelStatus: (modelId: string, status: CouncilMemberStatus) => void;
   resetDeliberation: () => void;
@@ -152,7 +169,12 @@ export type StreamEventType =
   | "stage3_complete"
   | "title_complete"
   | "complete"
-  | "error";
+  | "error"
+  // New streaming events for per-model updates
+  | "model_start"
+  | "model_chunk"
+  | "model_done"
+  | "model_error";
 
 export interface StreamEvent {
   type: StreamEventType;
@@ -160,6 +182,12 @@ export interface StreamEvent {
   metadata?: Metadata;
   message?: string;
   title?: string;
+  // Per-model streaming fields
+  model?: string;
+  content?: string;
+  accumulated?: string;
+  response?: ModelResponse;
+  error?: string;
 }
 
 export interface CouncilConfig {

@@ -164,3 +164,114 @@ Frontend: Display with tabs + validation UI
 ```
 
 The entire flow is async/parallel where possible to minimize latency.
+
+---
+
+## Shell Commands
+
+```bash
+# Start both frontend and backend
+npm run dev
+
+# Start only backend (port 8001)
+npm run dev:backend
+# or: uv run python -m backend.main
+
+# Start only frontend (port 5173)
+npm run dev:frontend
+# or: cd frontend && npm run dev
+
+# Install all dependencies
+npm run install:all
+
+# Build frontend for production
+npm run build
+
+# Test OpenRouter connection
+uv run python test_openrouter.py
+```
+
+---
+
+## Mandatory Build Validation
+
+### Before Reporting Any Feature Complete
+
+You MUST verify it works. Not "should work" — actually works.
+
+```
+BAD:  "I've implemented the endpoint."
+GOOD: "I've implemented and tested the endpoint:
+       - API returns expected response
+       - Frontend displays correctly
+       - Console shows no errors"
+```
+
+### Verification Checklist
+
+Before saying "done", complete:
+
+- [ ] Backend runs without errors
+- [ ] Frontend compiles and loads
+- [ ] Feature works end-to-end
+- [ ] No console errors (browser or server)
+- [ ] Tested happy path AND error case
+
+### Stop on Red Flags
+
+If you see any of these, STOP and fix:
+- 500 errors
+- "Failed to..." messages
+- Console exceptions
+- Features not working as described
+
+Do NOT build features on broken foundations.
+
+---
+
+## Common Mistakes to Avoid
+
+1. **Don't assume API is working** — Test endpoints directly
+2. **Don't skip error cases** — They will break in production
+3. **Don't ignore console errors** — Fix them before continuing
+4. **Don't modify config without testing** — Model names must be valid
+5. **Don't leave half-implemented features** — Complete or revert
+
+---
+
+## When You Finish a Feature
+
+Report with evidence:
+
+```markdown
+## Done: [Feature Name]
+
+### Tested
+- Backend: API returns expected response
+- Frontend: UI displays correctly
+- Console: No errors
+
+### Verify Yourself
+npm run dev
+# Open http://localhost:5173
+
+### Known Issues
+[None / List them]
+```
+
+---
+
+## Documentation
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| `README.md` | Root | User-facing overview |
+| `CLAUDE.md` | Root | Technical notes for AI |
+| `FOUNDATION.md` | Root | Development practices |
+| `memory-bank/projectBrief.md` | memory-bank/ | Project vision |
+| `memory-bank/activeContext.md` | memory-bank/ | Current focus |
+| `memory-bank/progress.md` | memory-bank/ | Progress log |
+| `docs/TECH-STACK.md` | docs/ | Dependencies & tools |
+| `docs/DEVELOPMENT.md` | docs/ | Setup guide |
+| `docs/ARCHITECTURE.md` | docs/ | Luxify architecture mapping |
+| `docs/adr/*.md` | docs/adr/ | Architecture decisions |

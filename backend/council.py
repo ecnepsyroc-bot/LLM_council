@@ -1,21 +1,69 @@
 """3-stage LLM Council orchestration."""
 
-from typing import List, Dict, Any, Tuple
-from .openrouter import query_models_parallel, query_model
+from typing import List, Dict, Any, Tuple, Optional, AsyncGenerator
+import asyncio
+from .openrouter import query_models_parallel, query_model, stream_model_response
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+import re
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+def parse_confidence_from_response(response_text: str) -> Tuple[str, Optional[int]]:
+    """
+    Parse confidence score from a response that includes it.
+
+    Expected format: Response ends with "CONFIDENCE: X/10" or "Confidence: X"
+
+    Args:
+        response_text: The full response text
+
+    Returns:
+        Tuple of (cleaned_response, confidence_score or None)
+    """
+    if not response_text:
+        return response_text, None
+
+    # Look for confidence pattern at the end of the response
+    patterns = [
+        r'\n*\*?\*?CONFIDENCE:?\*?\*?\s*(\d+)\s*/?\s*10\s*$',
+        r'\n*\*?\*?Confidence:?\*?\*?\s*(\d+)\s*/?\s*10\s*$',
+        r'\n*\[CONFIDENCE:\s*(\d+)/10\]\s*$',
+        r'\n*Confidence Score:\s*(\d+)/10\s*$',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, response_text, re.IGNORECASE)
+        if match:
+            confidence = int(match.group(1))
+            # Clamp to 1-10 range
+            confidence = max(1, min(10, confidence))
+            # Remove the confidence line from the response
+            cleaned = re.sub(pattern, '', response_text, flags=re.IGNORECASE).strip()
+            return cleaned, confidence
+
+    return response_text, None
+
+
+async def stage1_collect_responses(user_query: str, include_confidence: bool = True) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council models.
 
     Args:
         user_query: The user's question
+        include_confidence: Whether to ask models to rate their confidence
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        List of dicts with 'model', 'response', and optionally 'confidence' keys
     """
-    messages = [{"role": "user", "content": user_query}]
+    # Build the prompt, optionally asking for confidence
+    if include_confidence:
+        prompt = f"""{user_query}
+
+After your response, please rate your confidence in your answer on a scale of 1-10 (where 1 is very uncertain and 10 is extremely confident). Format it as:
+CONFIDENCE: X/10"""
+    else:
+        prompt = user_query
+
+    messages = [{"role": "user", "content": prompt}]
 
     # Query all models in parallel
     responses = await query_models_parallel(COUNCIL_MODELS, messages)
@@ -24,12 +72,133 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     stage1_results = []
     for model, response in responses.items():
         if response is not None:  # Only include successful responses
-            stage1_results.append({
-                "model": model,
-                "response": response.get('content', '')
-            })
+            raw_content = response.get('content', '')
+
+            if include_confidence:
+                cleaned_response, confidence = parse_confidence_from_response(raw_content)
+                stage1_results.append({
+                    "model": model,
+                    "response": cleaned_response,
+                    "confidence": confidence
+                })
+            else:
+                stage1_results.append({
+                    "model": model,
+                    "response": raw_content
+                })
 
     return stage1_results
+
+
+async def stage1_stream_responses(
+    user_query: str,
+    include_confidence: bool = True
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Stage 1: Stream individual responses from all council models in parallel.
+
+    Args:
+        user_query: The user's question
+        include_confidence: Whether to ask models to rate their confidence
+
+    Yields:
+        Dict with streaming events:
+        - type: 'model_start' | 'model_chunk' | 'model_done' | 'all_done'
+        - model: model identifier
+        - content: chunk content (for 'model_chunk')
+        - accumulated: full content so far (for 'model_chunk')
+        - response: parsed response object (for 'model_done')
+    """
+    # Build the prompt
+    if include_confidence:
+        prompt = f"""{user_query}
+
+After your response, please rate your confidence in your answer on a scale of 1-10 (where 1 is very uncertain and 10 is extremely confident). Format it as:
+CONFIDENCE: X/10"""
+    else:
+        prompt = user_query
+
+    messages = [{"role": "user", "content": prompt}]
+
+    # Track results from each model
+    model_results: Dict[str, Dict[str, Any]] = {}
+    active_streams = set(COUNCIL_MODELS)
+
+    # Signal that all models are starting
+    for model in COUNCIL_MODELS:
+        yield {
+            "type": "model_start",
+            "model": model
+        }
+
+    async def stream_single_model(model: str):
+        """Stream a single model and collect results."""
+        full_content = ""
+        async for event in stream_model_response(model, messages):
+            if event["type"] == "chunk":
+                full_content = event.get("accumulated", full_content + event.get("content", ""))
+                yield {
+                    "type": "model_chunk",
+                    "model": model,
+                    "content": event.get("content", ""),
+                    "accumulated": full_content
+                }
+            elif event["type"] == "done":
+                full_content = event.get("full_content", full_content)
+                # Parse confidence if enabled
+                if include_confidence:
+                    cleaned_response, confidence = parse_confidence_from_response(full_content)
+                    result = {
+                        "model": model,
+                        "response": cleaned_response,
+                        "confidence": confidence
+                    }
+                else:
+                    result = {
+                        "model": model,
+                        "response": full_content
+                    }
+                model_results[model] = result
+                yield {
+                    "type": "model_done",
+                    "model": model,
+                    "response": result
+                }
+            elif event["type"] == "error":
+                yield {
+                    "type": "model_error",
+                    "model": model,
+                    "error": event.get("error", "Unknown error")
+                }
+
+    # Create tasks for all models
+    async def run_model_stream(model: str):
+        events = []
+        async for event in stream_single_model(model):
+            events.append(event)
+        return events
+
+    # Run all streams concurrently and merge events
+    tasks = {model: asyncio.create_task(run_model_stream(model)) for model in COUNCIL_MODELS}
+
+    # Wait for all to complete, yielding events as they come
+    pending = set(tasks.values())
+    model_to_task = {id(task): model for model, task in tasks.items()}
+
+    while pending:
+        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+
+        for task in done:
+            events = task.result()
+            for event in events:
+                yield event
+
+    # Final event with all results
+    final_results = list(model_results.values())
+    yield {
+        "type": "all_done",
+        "results": final_results
+    }
 
 
 async def stage2_collect_rankings(
@@ -184,8 +353,6 @@ def parse_ranking_from_text(ranking_text: str) -> List[str]:
     Returns:
         List of response labels in ranked order
     """
-    import re
-
     # Look for "FINAL RANKING:" section
     if "FINAL RANKING:" in ranking_text:
         # Extract everything after "FINAL RANKING:"
@@ -255,6 +422,76 @@ def calculate_aggregate_rankings(
     return aggregate
 
 
+def detect_consensus(
+    stage2_results: List[Dict[str, Any]],
+    label_to_model: Dict[str, str]
+) -> Dict[str, Any]:
+    """
+    Detect if there is consensus among models on the top-ranked response.
+
+    Args:
+        stage2_results: Rankings from each model
+        label_to_model: Mapping from anonymous labels to model names
+
+    Returns:
+        Dict with consensus metadata:
+        - has_consensus: bool - True if all models agree on #1
+        - agreement_score: float - 0.0 to 1.0, proportion of models agreeing on #1
+        - top_model: str | None - The model that was ranked #1 by consensus
+        - top_votes: int - Number of votes for the top model
+        - total_voters: int - Total number of models that provided rankings
+    """
+    if not stage2_results:
+        return {
+            "has_consensus": False,
+            "agreement_score": 0.0,
+            "top_model": None,
+            "top_votes": 0,
+            "total_voters": 0
+        }
+
+    # Count first-place votes for each response
+    first_place_votes: Dict[str, int] = {}
+    total_voters = 0
+
+    for ranking in stage2_results:
+        parsed = ranking.get('parsed_ranking', [])
+        if parsed:
+            first_choice = parsed[0]  # e.g., "Response A"
+            first_place_votes[first_choice] = first_place_votes.get(first_choice, 0) + 1
+            total_voters += 1
+
+    if total_voters == 0:
+        return {
+            "has_consensus": False,
+            "agreement_score": 0.0,
+            "top_model": None,
+            "top_votes": 0,
+            "total_voters": 0
+        }
+
+    # Find the response with the most first-place votes
+    top_label = max(first_place_votes, key=first_place_votes.get)
+    top_votes = first_place_votes[top_label]
+
+    # Calculate agreement score (proportion that agree on #1)
+    agreement_score = top_votes / total_voters
+
+    # Map the label back to the model name
+    top_model = label_to_model.get(top_label)
+
+    # Full consensus means everyone agrees
+    has_consensus = top_votes == total_voters and total_voters > 1
+
+    return {
+        "has_consensus": has_consensus,
+        "agreement_score": round(agreement_score, 2),
+        "top_model": top_model,
+        "top_votes": top_votes,
+        "total_voters": total_voters
+    }
+
+
 async def generate_conversation_title(user_query: str) -> str:
     """
     Generate a short title for a conversation based on the first user message.
@@ -319,6 +556,9 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
+    # Detect consensus
+    consensus = detect_consensus(stage2_results, label_to_model)
+
     # Stage 3: Synthesize final answer
     stage3_result = await stage3_synthesize_final(
         user_query,
@@ -329,7 +569,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     # Prepare metadata
     metadata = {
         "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings
+        "aggregate_rankings": aggregate_rankings,
+        "consensus": consensus
     }
 
     return stage1_results, stage2_results, stage3_result, metadata
