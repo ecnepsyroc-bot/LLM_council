@@ -65,14 +65,22 @@ function Install-BackendService {
     Write-Host ""
     Write-Host "Installing Backend Service..." -ForegroundColor Cyan
 
-    # Find Python
-    $pythonPath = (Get-Command python -ErrorAction SilentlyContinue).Source
-    if (-not $pythonPath) {
-        $pythonPath = (Get-Command python3 -ErrorAction SilentlyContinue).Source
-    }
-    if (-not $pythonPath) {
-        Write-Host "ERROR: Python not found in PATH" -ForegroundColor Red
-        return $false
+    # Prefer virtual environment Python (has all dependencies installed)
+    $venvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+    if (Test-Path $venvPython) {
+        $pythonPath = $venvPython
+        Write-Host "  Using virtual environment Python: $pythonPath" -ForegroundColor Green
+    } else {
+        # Fall back to system Python
+        $pythonPath = (Get-Command python -ErrorAction SilentlyContinue).Source
+        if (-not $pythonPath) {
+            $pythonPath = (Get-Command python3 -ErrorAction SilentlyContinue).Source
+        }
+        if (-not $pythonPath) {
+            Write-Host "ERROR: Python not found in PATH" -ForegroundColor Red
+            return $false
+        }
+        Write-Host "  WARNING: Using system Python. If packages are missing, create a venv first." -ForegroundColor Yellow
     }
 
     # Remove existing service if present
@@ -94,6 +102,11 @@ function Install-BackendService {
     & $NssmPath set $BackendServiceName AppStderr (Join-Path $ProjectRoot "logs\backend-error.log")
     & $NssmPath set $BackendServiceName AppRotateFiles 1
     & $NssmPath set $BackendServiceName AppRotateBytes 1048576
+
+    # Set environment variables for virtual environment
+    $venvDir = Join-Path $ProjectRoot ".venv"
+    $venvScripts = Join-Path $venvDir "Scripts"
+    & $NssmPath set $BackendServiceName AppEnvironmentExtra "VIRTUAL_ENV=$venvDir" "PATH=$venvScripts;%PATH%"
 
     Write-Host "  Backend service installed" -ForegroundColor Green
     return $true

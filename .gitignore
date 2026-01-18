@@ -92,3 +92,9 @@ htmlcov/
 *.tmp
 *.temp
 .cache/
+
+# NSSM and tools
+tools/
+nssm.zip
+nssm-2.24/
+services/nssm.exe

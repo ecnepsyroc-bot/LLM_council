@@ -4,7 +4,11 @@ This directory contains scripts to run LLM Council as Windows services.
 
 ## Quick Start
 
-### Install Services (Run as Administrator)
+### Install Services (Easiest Method)
+
+Simply double-click `install-as-service.bat` in the project root. It will request admin privileges automatically.
+
+### Install Services (PowerShell - Run as Administrator)
 
 ```powershell
 cd services
@@ -28,7 +32,9 @@ This will:
 .\manage-services.ps1 logs     # View recent logs
 ```
 
-### Uninstall Services (Run as Administrator)
+### Uninstall Services
+
+Double-click `uninstall-service.bat` in the project root, or run:
 
 ```powershell
 .\install-services.ps1 -Uninstall
