@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Bot, Loader2, CheckCircle, Sparkles, Award, BarChart3, Zap, MessageSquare, Settings } from 'lucide-react';
 import { MarkdownRenderer } from '../shared/MarkdownRenderer';
@@ -48,7 +48,7 @@ function VotingMethodBadge({ method }: { method?: VotingMethod }) {
 }
 
 // Feature badges for active features
-function FeatureBadges({ metadata }: { metadata: Metadata | null }) {
+function FeatureBadges({ metadata }: { metadata: Metadata | null | undefined }) {
   if (!metadata?.features) return null;
 
   const { features } = metadata;
@@ -371,7 +371,7 @@ function AggregateRankingsView({ rankings, votingMethod }: { rankings: Aggregate
 }
 
 // Stage 2: Peer Rankings
-function Stage2View({ rankings, metadata }: { rankings: PeerEvaluation[]; metadata?: Metadata | null }) {
+function Stage2View({ rankings, metadata }: { rankings: PeerEvaluation[]; metadata?: Metadata | null | undefined }) {
   if (!rankings?.length) return null;
 
   const deanonymize = (text: string) => {
@@ -478,7 +478,7 @@ function Stage2View({ rankings, metadata }: { rankings: PeerEvaluation[]; metada
 }
 
 // Stage 3: Synthesis (with meta-evaluation support)
-function Stage3View({ synthesis, metadata }: { synthesis: ModelResponse | SynthesisWithMeta; metadata?: Metadata | null }) {
+function Stage3View({ synthesis, metadata }: { synthesis: ModelResponse | SynthesisWithMeta; metadata?: Metadata | null | undefined }) {
   if (!synthesis) return null;
 
   // Check if it's a SynthesisWithMeta

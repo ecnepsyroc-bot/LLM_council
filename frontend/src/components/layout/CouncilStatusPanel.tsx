@@ -51,7 +51,7 @@ function getStatusColor(status: ModelStatus) {
 }
 
 export function CouncilStatusPanel() {
-  const { councilStatus, deliberation, statusPanelCollapsed, toggleStatusPanel, config } = useCouncilStore();
+  const { councilStatus, deliberation, toggleStatusPanel, config } = useCouncilStore();
 
   const getStageLabel = () => {
     switch (deliberation.stage) {

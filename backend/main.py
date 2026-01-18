@@ -1,54 +1,101 @@
 """FastAPI backend for LLM Council."""
 
+import asyncio
+import json
+import logging
+import os
+import uuid
+from typing import Any, Dict, List
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
-import uuid
-import json
-import asyncio
 
 from . import storage
+from .auth import (
+    AdminAuth,
+    APIKeyCreate,
+    APIKeyCreatedResponse,
+    APIKeyResponse,
+    APIKeyService,
+    AuthenticationMiddleware,
+    RequiredAuth,
+)
+from .config import CHAIRMAN_MODEL, COUNCIL_MODELS
 from .council import (
-    run_full_council,
+    calculate_aggregate_rankings,
+    detect_consensus,
     generate_conversation_title,
+    run_full_council,
     stage1_collect_responses,
     stage1_stream_responses,
     stage2_collect_rankings,
     stage3_synthesize_final,
-    calculate_aggregate_rankings,
-    detect_consensus,
 )
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .health import router as health_router
+from .logging_config import LoggingMiddleware, setup_logging
 from .security import (
-    configure_cors,
-    RateLimitMiddleware,
     RateLimitConfig,
-    validate_message_content,
-    validate_conversation_update,
-    sanitize_for_prompt,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
     ValidationError,
+    configure_cors,
+    sanitize_for_prompt,
+    validate_conversation_update,
+    validate_message_content,
 )
+from .settings import get_settings
 
-import os
+# Setup logging
+settings = get_settings()
+setup_logging(level=settings.log_level, format_type=settings.log_format)
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="LLM Council API")
+app = FastAPI(
+    title="LLM Council API",
+    version="1.0.0",
+    description="Multi-LLM deliberation system",
+)
 
 # Configure CORS (environment-aware)
 configure_cors(app)
 
-# Add rate limiting middleware (disabled in testing)
+# Determine if we're in testing/development mode
 is_testing = os.getenv("TESTING", "").lower() in ("1", "true", "yes")
+bypass_auth = settings.bypass_auth or is_testing
+
+# Add security headers middleware
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    enable_hsts=not bypass_auth,  # Only enable HSTS in production
+)
+
+# Add rate limiting middleware (disabled in testing)
 app.add_middleware(
     RateLimitMiddleware,
     config=RateLimitConfig(
-        requests_per_minute=60,
-        requests_per_hour=500,
-        burst_limit=10,
-        excluded_paths=["/", "/api/config"],
+        requests_per_minute=settings.rate_limit_per_minute,
+        requests_per_hour=settings.rate_limit_per_hour,
+        burst_limit=settings.rate_limit_burst,
+        excluded_paths=["/", "/api/config", "/health", "/health/ready", "/health/detailed"],
         enabled=not is_testing,
     )
 )
+
+# Initialize authentication service
+auth_service = APIKeyService(default_rate_limit=settings.rate_limit_per_minute)
+
+# Add authentication middleware (bypassed in testing/development)
+app.add_middleware(
+    AuthenticationMiddleware,
+    service=auth_service,
+    bypass_auth=bypass_auth,
+)
+
+# Include health router
+app.include_router(health_router)
+
+logger.info(f"LLM Council API starting (bypass_auth={bypass_auth})")
 
 
 class CreateConversationRequest(BaseModel):
@@ -78,10 +125,11 @@ class ConversationMetadata(BaseModel):
     """Conversation metadata for list view."""
     id: str
     created_at: str
+    updated_at: str = ""
     title: str
     is_pinned: bool = False
     is_hidden: bool = False
-    message_count: int
+    message_count: int = 0
 
 
 class Conversation(BaseModel):
@@ -103,8 +151,81 @@ class UpdateConversationRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    """Health check endpoint."""
+    """Root endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
+
+
+# Note: Health endpoints are now provided by health_router
+# /health, /health/ready, /health/detailed
+
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+
+@app.post(
+    "/api/keys",
+    response_model=APIKeyCreatedResponse,
+    tags=["Authentication"],
+)
+async def create_api_key(request: APIKeyCreate, auth: AdminAuth):
+    """
+    Create a new API key.
+
+    **Important:** The full API key is only shown once in this response.
+    Store it securely - it cannot be retrieved later.
+
+    Requires admin permission.
+    """
+    return auth_service.create_key(request)
+
+
+@app.get(
+    "/api/keys",
+    response_model=List[APIKeyResponse],
+    tags=["Authentication"],
+)
+async def list_api_keys(include_inactive: bool = False, auth: AdminAuth = None):
+    """
+    List all API keys (without sensitive data).
+
+    Requires admin permission.
+    """
+    return auth_service.list_keys(include_inactive)
+
+
+@app.delete("/api/keys/{key_id}", tags=["Authentication"])
+async def revoke_api_key(key_id: int, auth: AdminAuth):
+    """
+    Revoke an API key.
+
+    The key will no longer be valid for authentication.
+    Requires admin permission.
+    """
+    if auth_service.revoke_key(key_id):
+        return {"status": "revoked", "key_id": key_id}
+    raise HTTPException(status_code=404, detail="API key not found")
+
+
+@app.get("/api/auth/me", tags=["Authentication"])
+async def get_current_user(auth: RequiredAuth):
+    """
+    Get information about the current API key.
+
+    Useful for verifying authentication is working.
+    """
+    return {
+        "key_prefix": auth.key_prefix,
+        "permissions": [p.value for p in auth.permissions],
+        "rate_limit": auth.rate_limit,
+        "request_id": auth.request_id,
+    }
+
+
+# ============================================================================
+# Conversation Endpoints
+# ============================================================================
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])
@@ -339,8 +460,11 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
 
         except Exception as e:
-            # Send error event
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            # Log the full error for debugging
+            logger.exception(f"Error in streaming: {e}")
+            # Send sanitized error event (don't expose internal details)
+            error_msg = "An error occurred during deliberation. Please try again."
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
 
     return StreamingResponse(
         event_generator(),

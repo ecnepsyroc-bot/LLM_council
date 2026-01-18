@@ -1,6 +1,7 @@
 """Security package for LLM Council."""
 
 from .cors import configure_cors, get_cors_config
+from .headers import SecurityHeadersMiddleware, CORSSecurityMiddleware
 from .rate_limiter import RateLimitMiddleware, RateLimitConfig
 from .validation import (
     validate_message_content,
@@ -13,6 +14,8 @@ from .validation import (
 __all__ = [
     "configure_cors",
     "get_cors_config",
+    "SecurityHeadersMiddleware",
+    "CORSSecurityMiddleware",
     "RateLimitMiddleware",
     "RateLimitConfig",
     "validate_message_content",

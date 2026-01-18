@@ -3,12 +3,6 @@ import { persist } from 'zustand/middleware';
 import type {
   UIPreferences,
   CouncilSettings,
-  ThemeMode,
-  FontFamily,
-  FontSize,
-  Stage1Layout,
-  ColorScheme,
-  VotingMethod,
 } from '../types';
 import {
   DEFAULT_UI_PREFERENCES,

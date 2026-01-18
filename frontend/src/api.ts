@@ -4,7 +4,10 @@
 
 import type { Conversation, StreamEvent, StreamEventType, DeliberationOptions } from './types';
 
-const API_BASE = 'http://localhost:8001';
+// Use environment variable for API base URL, defaulting to relative path for production
+// In development: set VITE_API_BASE=http://localhost:8001
+// In production: leave empty to use same origin (served via reverse proxy)
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export const api = {
   /**

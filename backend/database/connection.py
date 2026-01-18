@@ -93,6 +93,8 @@ def reset_database() -> None:
 
     # Drop all tables
     tables = [
+        "api_key_audit_log",
+        "api_keys",
         "deliberation_metadata",
         "stage3_synthesis",
         "stage2_rankings",

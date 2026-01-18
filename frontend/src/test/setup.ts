@@ -2,6 +2,9 @@ import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
+// Set up environment variable for tests
+vi.stubEnv('VITE_API_BASE', 'http://localhost:8001')
+
 // Cleanup after each test
 afterEach(() => {
   cleanup()

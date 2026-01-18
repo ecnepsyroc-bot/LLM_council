@@ -9,7 +9,6 @@ import type {
   Synthesis,
   CouncilMemberStatus,
   CouncilState,
-  CouncilConfig,
 } from '../types';
 
 const initialDeliberation = {

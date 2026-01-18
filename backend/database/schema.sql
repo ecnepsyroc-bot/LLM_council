@@ -82,3 +82,38 @@ CREATE INDEX IF NOT EXISTS idx_stage3_message ON stage3_synthesis(message_id);
 CREATE INDEX IF NOT EXISTS idx_metadata_message ON deliberation_metadata(message_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_pinned ON conversations(is_pinned DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
+
+-- API Keys table for authentication
+CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key_hash TEXT NOT NULL UNIQUE,          -- SHA-256 hash of the key
+    key_prefix TEXT NOT NULL,               -- First 12 chars for identification (e.g., "llmc_abc1234")
+    name TEXT NOT NULL,                     -- Human-readable name
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TEXT,
+    expires_at TEXT,                        -- NULL = never expires
+    is_active INTEGER DEFAULT 1,
+    rate_limit_override INTEGER,            -- Custom rate limit (NULL = use default)
+    permissions TEXT DEFAULT '["read", "write", "stream"]',  -- JSON array of permissions
+    metadata TEXT                           -- JSON object for custom data
+);
+
+-- API Key usage audit log
+CREATE TABLE IF NOT EXISTS api_key_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    api_key_id INTEGER NOT NULL,
+    action TEXT NOT NULL,                   -- 'request', 'rate_limited', 'expired', 'revoked', 'insufficient_permissions'
+    endpoint TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    request_id TEXT,                        -- UUID for request correlation
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
+);
+
+-- API key indexes
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix);
+CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active);
+CREATE INDEX IF NOT EXISTS idx_audit_log_key ON api_key_audit_log(api_key_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON api_key_audit_log(created_at);

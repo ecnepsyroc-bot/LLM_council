@@ -110,9 +110,11 @@ def conversation_id(test_client):
 
 @pytest.fixture
 def test_client_with_rate_limiting(temp_db, monkeypatch):
-    """FastAPI test client with rate limiting ENABLED."""
+    """FastAPI test client with rate limiting ENABLED but auth BYPASSED."""
     # Do NOT set TESTING env var - this keeps rate limiting enabled
     monkeypatch.delenv("TESTING", raising=False)
+    # But bypass auth for this test
+    monkeypatch.setenv("BYPASS_AUTH", "true")
 
     # Force reimport of main module to pick up the env var change
     import importlib

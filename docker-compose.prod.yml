@@ -1,0 +1,89 @@
+version: '3.8'
+
+# Production Docker Compose for LLM Council
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  llm-council:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+        BUILD_DATE: ${BUILD_DATE:-}
+        GIT_COMMIT: ${GIT_COMMIT:-}
+    image: llm-council:${VERSION:-latest}
+    container_name: llm-council
+    restart: unless-stopped
+
+    # Environment configuration
+    env_file:
+      - .env
+    environment:
+      - PORT=8001
+      - HOST=0.0.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=json
+      - DATABASE_PATH=/app/data/council.db
+
+    # Port mapping
+    ports:
+      - "${HOST_PORT:-8001}:8001"
+
+    # Volume mounts for persistence
+    volumes:
+      - council-data:/app/data
+      - council-logs:/app/logs
+      - council-backups:/app/backups
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Need write for SQLite
+    tmpfs:
+      - /tmp
+
+    # Network
+    networks:
+      - council-network
+
+# Named volumes for data persistence
+volumes:
+  council-data:
+    name: llm-council-data
+  council-logs:
+    name: llm-council-logs
+  council-backups:
+    name: llm-council-backups
+
+# Network configuration
+networks:
+  council-network:
+    name: llm-council-network
+    driver: bridge

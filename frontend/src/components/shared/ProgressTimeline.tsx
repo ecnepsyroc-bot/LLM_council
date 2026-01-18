@@ -29,31 +29,6 @@ export function ProgressTimeline({
     return 'pending';
   };
 
-  const getStatusColor = (status: string, color: string) => {
-    if (status === 'complete') {
-      return {
-        bg: `bg-${color}-600`,
-        border: `border-${color}-500`,
-        text: `text-${color}-400`,
-        line: `bg-${color}-500`,
-      };
-    }
-    if (status === 'active') {
-      return {
-        bg: `bg-${color}-600`,
-        border: `border-${color}-400`,
-        text: `text-${color}-300`,
-        line: 'bg-gray-600',
-      };
-    }
-    return {
-      bg: 'bg-gray-700',
-      border: 'border-gray-600',
-      text: 'text-gray-500',
-      line: 'bg-gray-600',
-    };
-  };
-
   if (compact) {
     return (
       <div className="flex items-center gap-1">

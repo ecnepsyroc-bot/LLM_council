@@ -1,16 +1,25 @@
-"""OpenRouter API client for making LLM requests."""
+"""
+Legacy OpenRouter API functions for backwards compatibility.
+
+This module provides the original simple API functions that are used
+by the existing council.py code. These functions wrap the new robust
+OpenRouterClient for backwards compatibility.
+"""
+
+import asyncio
+import json
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import httpx
-import json
-from typing import List, Dict, Any, Optional, AsyncGenerator
-from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
+
+from ..config import OPENROUTER_API_KEY, OPENROUTER_API_URL
 
 
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
     timeout: float = 120.0,
-    temperature: Optional[float] = None
+    temperature: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Query a single model via OpenRouter API.
@@ -29,7 +38,7 @@ async def query_model(
         "Content-Type": "application/json",
     }
 
-    payload = {
+    payload: Dict[str, Any] = {
         "model": model,
         "messages": messages,
     }
@@ -40,18 +49,16 @@ async def query_model(
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
-                OPENROUTER_API_URL,
-                headers=headers,
-                json=payload
+                OPENROUTER_API_URL, headers=headers, json=payload
             )
             response.raise_for_status()
 
             data = response.json()
-            message = data['choices'][0]['message']
+            message = data["choices"][0]["message"]
 
             return {
-                'content': message.get('content'),
-                'reasoning_details': message.get('reasoning_details')
+                "content": message.get("content"),
+                "reasoning_details": message.get("reasoning_details"),
             }
 
     except Exception as e:
@@ -60,8 +67,7 @@ async def query_model(
 
 
 async def query_models_parallel(
-    models: List[str],
-    messages: List[Dict[str, str]]
+    models: List[str], messages: List[Dict[str, str]]
 ) -> Dict[str, Optional[Dict[str, Any]]]:
     """
     Query multiple models in parallel.
@@ -73,8 +79,6 @@ async def query_models_parallel(
     Returns:
         Dict mapping model identifier to response dict (or None if failed)
     """
-    import asyncio
-
     # Create tasks for all models
     tasks = [query_model(model, messages) for model in models]
 
@@ -86,9 +90,7 @@ async def query_models_parallel(
 
 
 async def stream_model_response(
-    model: str,
-    messages: List[Dict[str, str]],
-    timeout: float = 120.0
+    model: str, messages: List[Dict[str, str]], timeout: float = 120.0
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Stream a response from a single model via OpenRouter API.
@@ -117,10 +119,7 @@ async def stream_model_response(
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
-                "POST",
-                OPENROUTER_API_URL,
-                headers=headers,
-                json=payload
+                "POST", OPENROUTER_API_URL, headers=headers, json=payload
             ) as response:
                 response.raise_for_status()
 
@@ -132,7 +131,7 @@ async def stream_model_response(
                             yield {
                                 "type": "done",
                                 "model": model,
-                                "full_content": full_content
+                                "full_content": full_content,
                             }
                             break
 
@@ -147,15 +146,11 @@ async def stream_model_response(
                                     "type": "chunk",
                                     "model": model,
                                     "content": content,
-                                    "accumulated": full_content
+                                    "accumulated": full_content,
                                 }
                         except json.JSONDecodeError:
                             continue
 
     except Exception as e:
         print(f"Error streaming model {model}: {e}")
-        yield {
-            "type": "error",
-            "model": model,
-            "error": str(e)
-        }
+        yield {"type": "error", "model": model, "error": str(e)}
