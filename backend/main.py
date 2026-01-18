@@ -39,10 +39,22 @@ class CreateConversationRequest(BaseModel):
     pass
 
 
+class DeliberationOptions(BaseModel):
+    """Options for the deliberation process."""
+    voting_method: str = "borda"  # simple, borda, mrr, confidence_weighted
+    use_rubric: bool = False
+    debate_rounds: int = 1
+    enable_early_exit: bool = True
+    use_self_moa: bool = False
+    rotating_chairman: bool = False
+    meta_evaluate: bool = False
+
+
 class SendMessageRequest(BaseModel):
     """Request to send a message in a conversation."""
     content: str
     images: List[str] = []
+    options: DeliberationOptions | None = None
 
 
 class ConversationMetadata(BaseModel):
@@ -197,6 +209,9 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(request.content))
 
+            # Get options with defaults
+            opts = request.options or DeliberationOptions()
+
             # Stage 1: Stream responses from all models in parallel
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
 
@@ -215,16 +230,51 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
-            # Stage 2: Collect rankings
+            # Stage 2: Collect rankings (with rubric option)
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
-            aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
+            stage2_results, label_to_model = await stage2_collect_rankings(
+                request.content,
+                stage1_results,
+                use_rubric=opts.use_rubric
+            )
+
+            # Calculate rankings with chosen voting method
+            aggregate_rankings = calculate_aggregate_rankings(
+                stage2_results,
+                label_to_model,
+                stage1_results=stage1_results if opts.voting_method == "confidence_weighted" else None,
+                method=opts.voting_method
+            )
             consensus = detect_consensus(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings, 'consensus': consensus}})}\n\n"
+
+            # Build features metadata
+            features = {
+                'use_rubric': opts.use_rubric,
+                'debate_rounds': opts.debate_rounds,
+                'early_exit_used': False,
+                'use_self_moa': opts.use_self_moa,
+                'rotating_chairman': opts.rotating_chairman,
+                'meta_evaluate': opts.meta_evaluate,
+                'chairman_model': CHAIRMAN_MODEL
+            }
+
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings, 'consensus': consensus, 'voting_method': opts.voting_method, 'features': features}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+
+            # Determine chairman (rotating or fixed)
+            chairman = CHAIRMAN_MODEL
+            if opts.rotating_chairman and aggregate_rankings:
+                chairman = aggregate_rankings[0].get('model', CHAIRMAN_MODEL)
+
+            stage3_result = await stage3_synthesize_final(
+                request.content,
+                stage1_results,
+                stage2_results,
+                chairman_model=chairman,
+                aggregate_rankings=aggregate_rankings
+            )
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started

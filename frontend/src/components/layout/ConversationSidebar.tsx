@@ -119,14 +119,17 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
 
   return (
     <div className="relative group">
-      <motion.button
+      <motion.div
         whileHover={{ x: 2 }}
         onClick={() => handleSelectConversation(conversation.id)}
-        className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors pr-16 ${
+        className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors pr-16 cursor-pointer ${
           conversation.id === activeConversationId
             ? 'bg-gray-700 text-white'
             : 'text-gray-300 hover:bg-gray-700/50'
         } ${conversation.is_hidden ? 'opacity-50' : ''}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectConversation(conversation.id); }}
       >
         <MessageSquare size={18} className="mt-0.5 flex-shrink-0 text-gray-500" />
         <div className="flex-1 min-w-0">
@@ -137,7 +140,7 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
             {conversation.message_count} messages
           </div>
         </div>
-      </motion.button>
+      </motion.div>
       
       <div className="absolute right-2 top-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button

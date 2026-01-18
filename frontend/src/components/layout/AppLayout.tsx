@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCouncilStore } from '../../store/councilStore';
 import { ConversationSidebar } from './ConversationSidebar';
 import { CouncilStatusPanel } from './CouncilStatusPanel';
+import { SettingsPanel } from '../settings/SettingsPanel';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-900 text-gray-100">
+      {/* Settings Panel (slides in from right) */}
+      <SettingsPanel />
       {/* Collapsible Sidebar */}
       <AnimatePresence mode="wait">
         <motion.div

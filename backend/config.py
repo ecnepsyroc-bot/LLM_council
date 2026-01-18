@@ -17,6 +17,10 @@ COUNCIL_MODELS = [
     "google/gemini-2.5-pro-preview-06-05",
     "x-ai/grok-3-beta",
     "deepseek/deepseek-r1",
+    "openai/gpt-4.5",
+    "meta-llama/llama-4-maverick",
+    "qwen/qwen3-235b-a22b",
+    "mistralai/mistral-large-2411",
 ]
 
 CHAIRMAN_MODEL = "anthropic/claude-opus-4"

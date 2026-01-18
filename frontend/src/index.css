@@ -1,9 +1,200 @@
 @import "tailwindcss";
 
-/* Dark theme base */
+/* ==========================================
+   CSS Variables for Theming
+   ========================================== */
+
 :root {
+  /* Dark theme (default) */
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #f3f4f6;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --accent-blue: #60a5fa;
+  --accent-blue-hover: #93c5fd;
+  --accent-green: #34d399;
+  --accent-purple: #a78bfa;
+  --accent-orange: #fb923c;
+  --scrollbar-track: #1f2937;
+  --scrollbar-thumb: #4b5563;
+  --scrollbar-thumb-hover: #6b7280;
   color-scheme: dark;
 }
+
+/* Light theme */
+.theme-light, html.theme-light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --accent-green: #10b981;
+  --accent-purple: #8b5cf6;
+  --accent-orange: #f97316;
+  --scrollbar-track: #f3f4f6;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+  color-scheme: light;
+}
+
+/* High contrast mode */
+.high-contrast, html.high-contrast {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #ffffff;
+  --text-muted: #d4d4d4;
+  --border-color: #ffffff;
+  --accent-blue: #00bfff;
+  --accent-green: #00ff7f;
+  --accent-purple: #da70d6;
+  --accent-orange: #ffa500;
+}
+
+.theme-light.high-contrast, html.theme-light.high-contrast {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #eeeeee;
+  --text-primary: #000000;
+  --text-secondary: #000000;
+  --text-muted: #333333;
+  --border-color: #000000;
+}
+
+/* Colorblind-safe palette */
+html.color-colorblind-safe {
+  --accent-blue: #0077bb;
+  --accent-green: #009988;
+  --accent-purple: #cc3311;
+  --accent-orange: #ee7733;
+}
+
+/* Apply colorblind-safe accent colors */
+html.color-colorblind-safe .text-blue-400,
+html.color-colorblind-safe .text-blue-500 {
+  color: var(--accent-blue) !important;
+}
+
+html.color-colorblind-safe .text-green-400,
+html.color-colorblind-safe .text-green-500 {
+  color: var(--accent-green) !important;
+}
+
+html.color-colorblind-safe .bg-blue-600 {
+  background-color: var(--accent-blue) !important;
+}
+
+html.color-colorblind-safe .bg-green-600 {
+  background-color: var(--accent-green) !important;
+}
+
+/* ==========================================
+   Font Family Variations
+   ========================================== */
+
+/* Default system font */
+html.font-default {
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* OpenDyslexic for better readability */
+/* Using fontsource which has proper npm package */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/opendyslexic@latest/latin-400-normal.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/opendyslexic@latest/latin-700-normal.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+html.font-dyslexic {
+  --font-family: 'OpenDyslexic', system-ui, sans-serif;
+}
+
+html.font-dyslexic body {
+  font-family: 'OpenDyslexic', system-ui, sans-serif !important;
+}
+
+/* Monospace font */
+html.font-mono {
+  --font-family: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+html.font-mono body {
+  font-family: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace !important;
+}
+
+/* ==========================================
+   Font Size Variations
+   ========================================== */
+
+html.text-small {
+  --base-font-size: 14px;
+  --heading-scale: 1.2;
+  font-size: 14px;
+}
+
+html.text-medium {
+  --base-font-size: 16px;
+  --heading-scale: 1.25;
+  font-size: 16px;
+}
+
+html.text-large {
+  --base-font-size: 18px;
+  --heading-scale: 1.3;
+  font-size: 18px;
+}
+
+html.text-xlarge {
+  --base-font-size: 20px;
+  --heading-scale: 1.35;
+  font-size: 20px;
+}
+
+/* ==========================================
+   Reduce Motion
+   ========================================== */
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.allow-motion) *,
+  :root:not(.allow-motion) *::before,
+  :root:not(.allow-motion) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================
+   Base Styles
+   ========================================== */
 
 * {
   margin: 0;
@@ -12,16 +203,84 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--font-family, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif);
+  font-size: var(--base-font-size, 16px);
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #111827;
-  color: #f3f4f6;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ==========================================
+   Light Theme Overrides for Tailwind
+   ========================================== */
+
+html.theme-light .bg-gray-900 {
+  background-color: var(--bg-primary) !important;
+}
+
+html.theme-light .bg-gray-800 {
+  background-color: var(--bg-secondary) !important;
+}
+
+html.theme-light .bg-gray-800\/50 {
+  background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent) !important;
+}
+
+html.theme-light .bg-gray-700 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+html.theme-light .text-gray-100 {
+  color: var(--text-primary) !important;
+}
+
+html.theme-light .text-gray-200 {
+  color: var(--text-primary) !important;
+}
+
+html.theme-light .text-gray-300 {
+  color: var(--text-secondary) !important;
+}
+
+html.theme-light .text-gray-400 {
+  color: var(--text-secondary) !important;
+}
+
+html.theme-light .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+html.theme-light .border-gray-700 {
+  border-color: var(--border-color) !important;
+}
+
+html.theme-light .border-gray-600 {
+  border-color: var(--border-color) !important;
+}
+
+/* High contrast overrides */
+html.high-contrast .bg-gray-900,
+html.high-contrast .bg-gray-800 {
+  background-color: var(--bg-primary) !important;
+}
+
+html.high-contrast .text-gray-100,
+html.high-contrast .text-gray-200,
+html.high-contrast .text-gray-300,
+html.high-contrast .text-gray-400 {
+  color: var(--text-primary) !important;
+}
+
+html.high-contrast .border-gray-700,
+html.high-contrast .border-gray-600 {
+  border-color: var(--border-color) !important;
 }
 
 #root {
@@ -37,25 +296,25 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Prose styling for markdown content */
 .prose {
-  color: #e5e7eb;
+  color: var(--text-secondary);
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  color: #f9fafb;
+  color: var(--text-primary);
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 600;
@@ -84,8 +343,8 @@ body {
 }
 
 .prose pre {
-  background: #1f2937;
-  border: 1px solid #374151;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   padding: 1em;
   border-radius: 0.5em;
   overflow-x: auto;
@@ -93,7 +352,7 @@ body {
 }
 
 .prose code {
-  background: #374151;
+  background: var(--bg-tertiary);
   padding: 0.2em 0.4em;
   border-radius: 0.25em;
   font-family: 'Fira Code', 'JetBrains Mono', monospace;
@@ -109,21 +368,21 @@ body {
 .prose blockquote {
   margin: 1em 0;
   padding-left: 1em;
-  border-left: 4px solid #4b5563;
-  color: #9ca3af;
+  border-left: 4px solid var(--border-color);
+  color: var(--text-muted);
 }
 
 .prose a {
-  color: #60a5fa;
+  color: var(--accent-blue);
   text-decoration: underline;
 }
 
 .prose a:hover {
-  color: #93c5fd;
+  color: var(--accent-blue-hover);
 }
 
 .prose strong {
-  color: #f9fafb;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -132,7 +391,7 @@ body {
 }
 
 .prose hr {
-  border-color: #374151;
+  border-color: var(--border-color);
   margin: 1.5em 0;
 }
 
@@ -143,13 +402,13 @@ body {
 }
 
 .prose th, .prose td {
-  border: 1px solid #374151;
+  border: 1px solid var(--border-color);
   padding: 0.5em 0.75em;
   text-align: left;
 }
 
 .prose th {
-  background: #1f2937;
+  background: var(--bg-secondary);
   font-weight: 600;
 }
 

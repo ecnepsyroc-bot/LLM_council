@@ -2,7 +2,7 @@
  * API client for the LLM Council backend.
  */
 
-import type { Conversation, StreamEvent, StreamEventType } from './types';
+import type { Conversation, StreamEvent, StreamEventType, DeliberationOptions } from './types';
 
 const API_BASE = 'http://localhost:8001';
 
@@ -75,7 +75,8 @@ export const api = {
     conversationId: string,
     content: string,
     onEvent: (eventType: StreamEventType, event: StreamEvent) => void,
-    images: string[] = []
+    images: string[] = [],
+    options?: DeliberationOptions
   ): Promise<void> {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}/message/stream`,
@@ -84,7 +85,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content, images }),
+        body: JSON.stringify({ content, images, options }),
       }
     );
 
