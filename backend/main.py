@@ -1,7 +1,6 @@
 """FastAPI backend for LLM Council."""
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
@@ -21,16 +20,34 @@ from .council import (
     detect_consensus,
 )
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .security import (
+    configure_cors,
+    RateLimitMiddleware,
+    RateLimitConfig,
+    validate_message_content,
+    validate_conversation_update,
+    sanitize_for_prompt,
+    ValidationError,
+)
+
+import os
 
 app = FastAPI(title="LLM Council API")
 
-# Enable CORS for local development
+# Configure CORS (environment-aware)
+configure_cors(app)
+
+# Add rate limiting middleware (disabled in testing)
+is_testing = os.getenv("TESTING", "").lower() in ("1", "true", "yes")
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    RateLimitMiddleware,
+    config=RateLimitConfig(
+        requests_per_minute=60,
+        requests_per_hour=500,
+        burst_limit=10,
+        excluded_paths=["/", "/api/config"],
+        enabled=not is_testing,
+    )
 )
 
 
@@ -129,14 +146,19 @@ async def update_conversation(conversation_id: str, request: UpdateConversationR
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    if request.title is not None:
-        storage.update_conversation_field(conversation_id, "title", request.title)
-    
-    if request.is_pinned is not None:
-        storage.update_conversation_field(conversation_id, "is_pinned", request.is_pinned)
-        
-    if request.is_hidden is not None:
-        storage.update_conversation_field(conversation_id, "is_hidden", request.is_hidden)
+    # Validate and sanitize input
+    try:
+        validated = validate_conversation_update(
+            title=request.title,
+            is_pinned=request.is_pinned,
+            is_hidden=request.is_hidden
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Apply validated updates
+    for field, value in validated.items():
+        storage.update_conversation_field(conversation_id, field, value)
 
     return storage.get_conversation(conversation_id)
 
@@ -152,20 +174,31 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # Validate and sanitize input
+    try:
+        validated_content, validated_images = validate_message_content(
+            request.content, request.images
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Sanitize content for prompt injection protection
+    safe_content = sanitize_for_prompt(validated_content)
+
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
 
-    # Add user message
-    storage.add_user_message(conversation_id, request.content, request.images)
+    # Add user message (store original content, not sanitized)
+    storage.add_user_message(conversation_id, validated_content, validated_images)
 
     # If this is the first message, generate a title
     if is_first_message:
-        title = await generate_conversation_title(request.content)
+        title = await generate_conversation_title(validated_content)
         storage.update_conversation_field(conversation_id, "title", title)
 
-    # Run the 3-stage council process
+    # Run the 3-stage council process with sanitized content
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
+        safe_content
     )
 
     # Add assistant message with all stages
@@ -196,27 +229,38 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # Validate and sanitize input (before starting stream)
+    try:
+        validated_content, validated_images = validate_message_content(
+            request.content, request.images
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Sanitize content for prompt injection protection
+    safe_content = sanitize_for_prompt(validated_content)
+
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
 
     async def event_generator():
         try:
-            # Add user message
-            storage.add_user_message(conversation_id, request.content, request.images)
+            # Add user message (store original content)
+            storage.add_user_message(conversation_id, validated_content, validated_images)
 
             # Start title generation in parallel (don't await yet)
             title_task = None
             if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
+                title_task = asyncio.create_task(generate_conversation_title(validated_content))
 
             # Get options with defaults
             opts = request.options or DeliberationOptions()
 
-            # Stage 1: Stream responses from all models in parallel
+            # Stage 1: Stream responses from all models in parallel (use sanitized content)
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
 
             stage1_results = []
-            async for event in stage1_stream_responses(request.content):
+            async for event in stage1_stream_responses(safe_content):
                 if event["type"] == "model_start":
                     yield f"data: {json.dumps({'type': 'model_start', 'model': event['model']})}\n\n"
                 elif event["type"] == "model_chunk":
@@ -230,10 +274,10 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
-            # Stage 2: Collect rankings (with rubric option)
+            # Stage 2: Collect rankings (with rubric option, use sanitized content)
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
             stage2_results, label_to_model = await stage2_collect_rankings(
-                request.content,
+                safe_content,
                 stage1_results,
                 use_rubric=opts.use_rubric
             )
@@ -269,7 +313,7 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 chairman = aggregate_rankings[0].get('model', CHAIRMAN_MODEL)
 
             stage3_result = await stage3_synthesize_final(
-                request.content,
+                safe_content,
                 stage1_results,
                 stage2_results,
                 chairman_model=chairman,

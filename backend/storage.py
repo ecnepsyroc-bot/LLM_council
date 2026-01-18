@@ -1,51 +1,52 @@
-"""JSON-based storage for conversations."""
+"""
+Storage facade for LLM Council conversations.
 
-import json
-import os
-from datetime import datetime
+This module provides backward-compatible functions that now use SQLite
+instead of JSON files. The public API remains unchanged.
+"""
+
 from typing import List, Dict, Any, Optional
-from pathlib import Path
-from .config import DATA_DIR
+import uuid
+
+from .database import init_database
+from .database.repositories import ConversationRepository, MessageRepository
+
+# Initialize database on module import
+init_database()
+
+# Singleton repository instances
+_conv_repo = ConversationRepository()
+_msg_repo = MessageRepository()
 
 
-def ensure_data_dir():
-    """Ensure the data directory exists."""
-    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
-
-
-def get_conversation_path(conversation_id: str) -> str:
-    """Get the file path for a conversation."""
-    return os.path.join(DATA_DIR, f"{conversation_id}.json")
-
-
-def create_conversation(conversation_id: str) -> Dict[str, Any]:
+def create_conversation(conversation_id: str = None) -> Dict[str, Any]:
     """
     Create a new conversation.
 
     Args:
-        conversation_id: Unique identifier for the conversation
+        conversation_id: Optional ID (generated if not provided)
 
     Returns:
         New conversation dict
     """
-    ensure_data_dir()
+    # Note: The repository generates its own ID, but we accept one for compatibility
+    # If an ID is provided, we need to handle it specially
+    if conversation_id:
+        # For backward compatibility, create with the provided ID
+        # This requires direct database access
+        from .database.connection import transaction
+        from datetime import datetime, timezone
 
-    conversation = {
-        "id": conversation_id,
-        "created_at": datetime.utcnow().isoformat(),
-        "title": "New Conversation",
-        "is_pinned": False,
-        "is_hidden": False,
-        "message_count": 0,
-        "messages": []
-    }
+        now = datetime.now(timezone.utc).isoformat()
+        with transaction() as conn:
+            conn.execute(
+                """INSERT INTO conversations (id, title, created_at, updated_at)
+                   VALUES (?, 'New Conversation', ?, ?)""",
+                (conversation_id, now, now)
+            )
+        return _conv_repo.get(conversation_id)
 
-    # Save to file
-    path = get_conversation_path(conversation_id)
-    with open(path, 'w') as f:
-        json.dump(conversation, f, indent=2)
-
-    return conversation
+    return _conv_repo.create()
 
 
 def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
@@ -58,27 +59,31 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
     Returns:
         Conversation dict or None if not found
     """
-    path = get_conversation_path(conversation_id)
-
-    if not os.path.exists(path):
-        return None
-
-    with open(path, 'r') as f:
-        return json.load(f)
+    return _conv_repo.get(conversation_id)
 
 
-def save_conversation(conversation: Dict[str, Any]):
+def save_conversation(conversation: Dict[str, Any]) -> None:
     """
     Save a conversation to storage.
+
+    Note: This is a legacy function. With SQLite, data is saved automatically
+    via add_user_message/add_assistant_message. This function now only
+    updates metadata fields.
 
     Args:
         conversation: Conversation dict to save
     """
-    ensure_data_dir()
+    conv_id = conversation.get("id")
+    if not conv_id:
+        return
 
-    path = get_conversation_path(conversation['id'])
-    with open(path, 'w') as f:
-        json.dump(conversation, f, indent=2)
+    # Update metadata fields if they exist
+    _conv_repo.update(
+        conv_id,
+        title=conversation.get("title"),
+        is_pinned=conversation.get("is_pinned"),
+        is_hidden=conversation.get("is_hidden")
+    )
 
 
 def list_conversations() -> List[Dict[str, Any]]:
@@ -86,61 +91,47 @@ def list_conversations() -> List[Dict[str, Any]]:
     List all conversations (metadata only).
 
     Returns:
-        List of conversation metadata dicts
+        List of conversation metadata dicts, sorted by pinned then updated
     """
-    ensure_data_dir()
-
-    conversations = []
-    for filename in os.listdir(DATA_DIR):
-        if filename.endswith('.json'):
-            path = os.path.join(DATA_DIR, filename)
-            with open(path, 'r') as f:
-                data = json.load(f)
-                # Return metadata only
-                conversations.append({
-                    "id": data["id"],
-                    "created_at": data["created_at"],
-                    "title": data.get("title", "New Conversation"),
-                    "is_pinned": data.get("is_pinned", False),
-                    "is_hidden": data.get("is_hidden", False),
-                    "message_count": len(data["messages"])
-                })
-
-    return conversations
+    return _conv_repo.list_all(include_hidden=True)
 
 
-
-
-def add_user_message(conversation_id: str, content: str, images: List[str] = None):
+def add_user_message(
+    conversation_id: str,
+    content: str,
+    images: List[str] = None
+) -> None:
     """
     Add a user message to a conversation.
 
     Args:
         conversation_id: Conversation identifier
         content: Message content
-        images: Optional list of base64 image data
+        images: Optional list of base64 image data (stored in content for now)
+
+    Raises:
+        ValueError: If conversation not found
     """
-    conversation = get_conversation(conversation_id)
-    if conversation is None:
-        raise ValueError(f"Conversation {conversation_id} not found")
-
-    message = {
-        "role": "user",
-        "content": content
-    }
+    # For now, embed images in content if provided
+    # TODO: Add proper image storage table if needed
+    full_content = content
     if images:
-        message["images"] = images
+        # Store images as JSON in content for backward compatibility
+        import json
+        full_content = json.dumps({"content": content, "images": images})
 
-    conversation["messages"].append(message)
-    save_conversation(conversation)
+    result = _msg_repo.add_user_message(conversation_id, full_content)
+    if result is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
 
 
 def add_assistant_message(
     conversation_id: str,
     stage1: List[Dict[str, Any]],
     stage2: List[Dict[str, Any]],
-    stage3: Dict[str, Any]
-):
+    stage3: Dict[str, Any],
+    metadata: Dict[str, Any] = None
+) -> None:
     """
     Add an assistant message with all 3 stages to a conversation.
 
@@ -149,22 +140,20 @@ def add_assistant_message(
         stage1: List of individual model responses
         stage2: List of model rankings
         stage3: Final synthesized response
+        metadata: Optional deliberation metadata (label_to_model, aggregate_rankings, etc.)
+
+    Raises:
+        ValueError: If conversation not found
     """
-    conversation = get_conversation(conversation_id)
-    if conversation is None:
+    result = _msg_repo.add_assistant_message(
+        conversation_id,
+        stage1,
+        stage2,
+        stage3,
+        metadata
+    )
+    if result is None:
         raise ValueError(f"Conversation {conversation_id} not found")
-
-    conversation["messages"].append({
-        "role": "assistant",
-        "stage1": stage1,
-        "stage2": stage2,
-        "stage3": stage3
-    })
-
-    save_conversation(conversation)
-
-
-
 
 
 def update_conversation_field(conversation_id: str, field: str, value: Any) -> bool:
@@ -173,19 +162,14 @@ def update_conversation_field(conversation_id: str, field: str, value: Any) -> b
 
     Args:
         conversation_id: Conversation identifier
-        field: Field name to update
+        field: Field name to update (title, is_pinned, is_hidden)
         value: New value
 
     Returns:
         True if updated, False if not found
     """
-    conversation = get_conversation(conversation_id)
-    if conversation is None:
-        return False
-
-    conversation[field] = value
-    save_conversation(conversation)
-    return True
+    result = _conv_repo.update(conversation_id, **{field: value})
+    return result is not None
 
 
 def delete_conversation(conversation_id: str) -> bool:
@@ -198,8 +182,15 @@ def delete_conversation(conversation_id: str) -> bool:
     Returns:
         True if deleted, False if not found
     """
-    path = get_conversation_path(conversation_id)
-    if os.path.exists(path):
-        os.remove(path)
-        return True
-    return False
+    return _conv_repo.delete(conversation_id)
+
+
+# Legacy compatibility - these functions are no longer needed but kept for compatibility
+def ensure_data_dir() -> None:
+    """Legacy function - data directory is now managed by database module."""
+    pass
+
+
+def get_conversation_path(conversation_id: str) -> str:
+    """Legacy function - returns empty string as JSON files are no longer used."""
+    return ""
