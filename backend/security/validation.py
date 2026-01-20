@@ -147,7 +147,7 @@ def validate_conversation_update(
     return validated
 
 
-def sanitize_for_prompt(text: str) -> str:
+def sanitize_for_prompt(text: str, track_metrics: bool = True) -> str:
     """
     Sanitize user text before including in LLM prompts.
 
@@ -157,6 +157,7 @@ def sanitize_for_prompt(text: str) -> str:
 
     Args:
         text: User-provided text
+        track_metrics: Whether to record injection attempts to metrics
 
     Returns:
         Sanitized text safe for prompt inclusion
@@ -167,36 +168,52 @@ def sanitize_for_prompt(text: str) -> str:
     sanitized = text.strip()
 
     # Patterns that might indicate prompt injection attempts
+    # Each pattern has: (regex, replacement, category_for_metrics)
     injection_patterns = [
         # Instruction override attempts
-        (r'(?i)ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|context)', '[CONTENT FILTERED]'),
-        (r'(?i)disregard\s+(all\s+)?(previous|prior|above|earlier)', '[CONTENT FILTERED]'),
-        (r'(?i)forget\s+(everything|all)\s+(above|before|prior)', '[CONTENT FILTERED]'),
+        (r'(?i)ignore\s+(all\s+)?(the\s+)?(previous|prior|above|earlier)\s*(instructions?|prompts?|context)?', '[CONTENT FILTERED]', 'instruction_override'),
+        (r'(?i)disregard\s+(all\s+)?(the\s+)?(previous|prior|above|earlier|everything)', '[CONTENT FILTERED]', 'instruction_override'),
+        (r'(?i)forget\s+(everything|all)\s+(above|before|prior)', '[CONTENT FILTERED]', 'instruction_override'),
 
         # Role/persona manipulation
-        (r'(?i)you\s+are\s+now\s+(a|an|the)\s+', '[CONTENT FILTERED]'),
-        (r'(?i)act\s+as\s+(if\s+)?(you\s+)?(are|were)\s+(a|an|the)', '[CONTENT FILTERED]'),
-        (r'(?i)pretend\s+(to\s+be|you\s+are)', '[CONTENT FILTERED]'),
+        (r'(?i)you\s+are\s+now\s+(a|an|the)\s+', '[CONTENT FILTERED]', 'role_manipulation'),
+        (r'(?i)act\s+as\s+(if\s+)?(you\s+)?(are|were)\s+(a|an|the)', '[CONTENT FILTERED]', 'role_manipulation'),
+        (r'(?i)pretend\s+(to\s+be|you\s+are)', '[CONTENT FILTERED]', 'role_manipulation'),
 
         # System prompt extraction
-        (r'(?i)what\s+(is|are)\s+your\s+(system\s+)?(prompt|instructions)', '[CONTENT FILTERED]'),
-        (r'(?i)repeat\s+(your\s+)?(system\s+)?(prompt|instructions)', '[CONTENT FILTERED]'),
-        (r'(?i)show\s+(me\s+)?(your\s+)?(system\s+)?(prompt|instructions)', '[CONTENT FILTERED]'),
+        (r'(?i)what\s+(is|are)\s+your\s+(system\s+)?(prompt|instructions)', '[CONTENT FILTERED]', 'prompt_extraction'),
+        (r'(?i)repeat\s+(your\s+)?(system\s+)?(prompt|instructions)', '[CONTENT FILTERED]', 'prompt_extraction'),
+        (r'(?i)show\s+(me\s+)?(your\s+)?(system\s+)?(prompt|instructions)', '[CONTENT FILTERED]', 'prompt_extraction'),
 
         # Delimiter injection
-        (r'```system', '```text'),
-        (r'<system>', '[system]'),
-        (r'</system>', '[/system]'),
+        (r'```system', '```text', 'delimiter_injection'),
+        (r'<system>', '[system]', 'delimiter_injection'),
+        (r'</system>', '[/system]', 'delimiter_injection'),
 
-        # Fake message boundaries
-        (r'(?i)^(user|assistant|system)\s*:', lambda m: f'[{m.group(1)}]:'),
+        # Fake message boundaries (multiline aware)
+        (r'(?im)^(user|assistant|system)\s*:', None, 'message_boundary'),  # Special handling
     ]
 
-    for pattern, replacement in injection_patterns:
-        if callable(replacement):
-            sanitized = re.sub(pattern, replacement, sanitized)
-        else:
-            sanitized = re.sub(pattern, replacement, sanitized)
+    for item in injection_patterns:
+        pattern, replacement, category = item
+
+        # Check if pattern matches before replacing
+        if re.search(pattern, sanitized):
+            if track_metrics:
+                try:
+                    from ..metrics import record_injection_attempt
+                    record_injection_attempt(category)
+                except ImportError:
+                    pass  # Metrics not available
+
+            # Handle special cases
+            if replacement is None:
+                # Fake message boundary - use lambda
+                sanitized = re.sub(pattern, lambda m: f'[{m.group(1)}]:', sanitized)
+            elif callable(replacement):
+                sanitized = re.sub(pattern, replacement, sanitized)
+            else:
+                sanitized = re.sub(pattern, replacement, sanitized)
 
     return sanitized
 

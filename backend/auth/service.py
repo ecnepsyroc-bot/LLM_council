@@ -23,7 +23,12 @@ from .models import (
     Permission,
 )
 from .repository import APIKeyRepository
-from .utils import generate_api_key, hash_api_key, is_valid_key_format
+from .utils import (
+    extract_key_prefix,
+    generate_api_key,
+    is_valid_key_format,
+    verify_api_key_auto,
+)
 
 
 class APIKeyService:
@@ -92,11 +97,15 @@ class APIKeyService:
         if not api_key or not is_valid_key_format(api_key):
             raise InvalidAPIKeyError()
 
-        # Look up by hash
-        key_hash = hash_api_key(api_key)
-        db_key = self.repository.get_by_hash(key_hash)
+        # Look up by prefix (bcrypt hashes are non-deterministic, so we can't lookup by hash)
+        key_prefix = extract_key_prefix(api_key)
+        db_key = self.repository.get_by_prefix(key_prefix)
 
         if not db_key:
+            raise InvalidAPIKeyError()
+
+        # Verify the key against stored hash (supports both bcrypt and legacy SHA-256)
+        if not verify_api_key_auto(api_key, db_key.key_hash):
             raise InvalidAPIKeyError()
 
         # Check if revoked

@@ -7,9 +7,11 @@ from .validation import (
     validate_message_content,
     validate_conversation_update,
     sanitize_for_prompt,
+    escape_html,
     ContentLimits,
     ValidationError,
 )
+from .pii import detect_pii, scan_response_for_pii, PIIReport, PIIMatch
 
 __all__ = [
     "configure_cors",
@@ -21,6 +23,11 @@ __all__ = [
     "validate_message_content",
     "validate_conversation_update",
     "sanitize_for_prompt",
+    "escape_html",
     "ContentLimits",
     "ValidationError",
+    "detect_pii",
+    "scan_response_for_pii",
+    "PIIReport",
+    "PIIMatch",
 ]

@@ -12,6 +12,8 @@ Modules:
 - consensus: Consensus detection
 - stages: Stage implementations
 - orchestration: Main council orchestration
+- cache: Response caching layer
+- hallucination: Peer-based hallucination detection
 """
 
 # Voting methods
@@ -52,6 +54,22 @@ from .stages import (
 # Main orchestration
 from .orchestration import run_full_council
 
+# Caching
+from .cache import (
+    ResponseCache,
+    get_cache,
+    configure_cache,
+    cached_council_query,
+)
+
+# Hallucination detection
+from .hallucination import (
+    detect_hallucinations,
+    analyze_response_consistency,
+    HallucinationReport,
+    HallucinationSignal,
+)
+
 __all__ = [
     # Voting
     "VotingMethod",
@@ -83,4 +101,14 @@ __all__ = [
     "generate_conversation_title",
     # Orchestration
     "run_full_council",
+    # Caching
+    "ResponseCache",
+    "get_cache",
+    "configure_cache",
+    "cached_council_query",
+    # Hallucination detection
+    "detect_hallucinations",
+    "analyze_response_consistency",
+    "HallucinationReport",
+    "HallucinationSignal",
 ]

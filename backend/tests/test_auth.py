@@ -7,6 +7,9 @@ from backend.auth.utils import (
     generate_api_key,
     hash_api_key,
     verify_api_key,
+    verify_api_key_auto,
+    verify_api_key_legacy,
+    is_bcrypt_hash,
     is_valid_key_format,
     extract_key_prefix,
     KEY_PREFIX,
@@ -32,25 +35,32 @@ class TestAPIKeyUtils:
         assert full_key.startswith(KEY_PREFIX)
         assert len(full_key) == len(KEY_PREFIX) + KEY_LENGTH  # "llmc_" + 32 chars
         assert prefix == full_key[:12]
-        assert len(key_hash) == 64  # SHA-256 hex
+        # Bcrypt hash starts with $2b$ and is ~60 chars
+        assert key_hash.startswith("$2b$")
+        assert len(key_hash) == 60
 
     def test_generate_api_key_uniqueness(self):
         """Each generated key is unique."""
         keys = [generate_api_key()[0] for _ in range(100)]
         assert len(set(keys)) == 100
 
-    def test_hash_api_key_deterministic(self):
-        """Same key produces same hash."""
+    def test_hash_api_key_non_deterministic(self):
+        """Bcrypt produces different hashes for same key (different salts)."""
         key = "llmc_" + "a" * 32
         hash1 = hash_api_key(key)
         hash2 = hash_api_key(key)
-        assert hash1 == hash2
+        # Bcrypt produces different hashes due to random salt
+        assert hash1 != hash2
+        # But both should verify correctly
+        assert verify_api_key(key, hash1)
+        assert verify_api_key(key, hash2)
 
-    def test_hash_api_key_different_keys(self):
-        """Different keys produce different hashes."""
-        key1 = "llmc_" + "a" * 32
-        key2 = "llmc_" + "b" * 32
-        assert hash_api_key(key1) != hash_api_key(key2)
+    def test_hash_api_key_is_bcrypt(self):
+        """Hash is a valid bcrypt hash."""
+        key = "llmc_" + "a" * 32
+        key_hash = hash_api_key(key)
+        assert is_bcrypt_hash(key_hash)
+        assert key_hash.startswith("$2b$")
 
     def test_verify_api_key_valid(self):
         """Valid key verifies correctly."""
@@ -89,6 +99,53 @@ class TestAPIKeyUtils:
         """Short key returns full string."""
         key = "short"
         assert extract_key_prefix(key) == "short"
+
+    def test_is_bcrypt_hash_true(self):
+        """Bcrypt hashes are correctly identified."""
+        assert is_bcrypt_hash("$2b$12$abcdefghijklmnopqrstuvwxyz")
+        assert is_bcrypt_hash("$2a$10$abcdefghijklmnopqrstuvwxyz")
+        assert is_bcrypt_hash("$2y$12$abcdefghijklmnopqrstuvwxyz")
+
+    def test_is_bcrypt_hash_false(self):
+        """Non-bcrypt hashes are correctly identified."""
+        # SHA-256 hex hash
+        assert not is_bcrypt_hash("a" * 64)
+        assert not is_bcrypt_hash("abc123")
+
+    def test_verify_api_key_legacy_valid(self):
+        """Legacy SHA-256 verification works."""
+        import hashlib
+        key = "llmc_" + "a" * 32
+        # Create a legacy SHA-256 hash
+        salt = key[:12]
+        salted = f"{salt}:{key}"
+        legacy_hash = hashlib.sha256(salted.encode()).hexdigest()
+        assert verify_api_key_legacy(key, legacy_hash)
+
+    def test_verify_api_key_legacy_invalid(self):
+        """Legacy verification rejects invalid keys."""
+        import hashlib
+        key = "llmc_" + "a" * 32
+        wrong_key = "llmc_" + "b" * 32
+        salt = key[:12]
+        salted = f"{salt}:{key}"
+        legacy_hash = hashlib.sha256(salted.encode()).hexdigest()
+        assert not verify_api_key_legacy(wrong_key, legacy_hash)
+
+    def test_verify_api_key_auto_bcrypt(self):
+        """Auto verification detects and verifies bcrypt hashes."""
+        key = "llmc_" + "a" * 32
+        bcrypt_hash = hash_api_key(key)
+        assert verify_api_key_auto(key, bcrypt_hash)
+
+    def test_verify_api_key_auto_legacy(self):
+        """Auto verification detects and verifies legacy SHA-256 hashes."""
+        import hashlib
+        key = "llmc_" + "a" * 32
+        salt = key[:12]
+        salted = f"{salt}:{key}"
+        legacy_hash = hashlib.sha256(salted.encode()).hexdigest()
+        assert verify_api_key_auto(key, legacy_hash)
 
 
 class TestAPIKeyService:

@@ -63,6 +63,103 @@ class OpenRouterClient:
             await self._client.aclose()
             self._client = None
 
+    def _extract_content(self, data: Dict[str, Any], model: str) -> str:
+        """
+        Extract content from API response with validation.
+
+        Validates response structure and returns the content string.
+        Raises InvalidRequestError if response is malformed.
+        """
+        try:
+            # Validate required structure
+            if not isinstance(data, dict):
+                raise InvalidRequestError(
+                    f"Invalid response from {model}: expected dict, got {type(data).__name__}",
+                    500,
+                )
+
+            if "choices" not in data:
+                raise InvalidRequestError(
+                    f"Invalid response from {model}: missing 'choices' field",
+                    500,
+                )
+
+            choices = data["choices"]
+            if not isinstance(choices, list) or len(choices) == 0:
+                raise InvalidRequestError(
+                    f"Invalid response from {model}: 'choices' is empty or not a list",
+                    500,
+                )
+
+            first_choice = choices[0]
+            if not isinstance(first_choice, dict) or "message" not in first_choice:
+                raise InvalidRequestError(
+                    f"Invalid response from {model}: missing 'message' in choice",
+                    500,
+                )
+
+            message = first_choice["message"]
+            if not isinstance(message, dict) or "content" not in message:
+                raise InvalidRequestError(
+                    f"Invalid response from {model}: missing 'content' in message",
+                    500,
+                )
+
+            content = message["content"]
+
+            # Allow None content (some APIs return null for tool calls)
+            if content is None:
+                return ""
+
+            if not isinstance(content, str):
+                raise InvalidRequestError(
+                    f"Invalid response from {model}: content is not a string",
+                    500,
+                )
+
+            return content
+
+        except KeyError as e:
+            raise InvalidRequestError(
+                f"Invalid response from {model}: missing key {e}",
+                500,
+            )
+        except (TypeError, IndexError) as e:
+            raise InvalidRequestError(
+                f"Invalid response from {model}: {e}",
+                500,
+            )
+
+    def _extract_stream_delta(self, chunk: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract content delta from a streaming chunk with validation.
+
+        Returns the delta content string, or None if no content in this chunk.
+        """
+        try:
+            if not isinstance(chunk, dict):
+                return None
+
+            choices = chunk.get("choices")
+            if not choices or not isinstance(choices, list) or len(choices) == 0:
+                return None
+
+            delta = choices[0].get("delta")
+            if not delta or not isinstance(delta, dict):
+                return None
+
+            content = delta.get("content")
+            if content is None:
+                return None
+
+            if not isinstance(content, str):
+                return None
+
+            return content
+
+        except (KeyError, TypeError, IndexError):
+            return None
+
     def _handle_response_error(self, response: httpx.Response, model: str) -> None:
         """Convert HTTP errors to appropriate exceptions."""
         status = response.status_code
@@ -154,19 +251,39 @@ class OpenRouterClient:
 
             data = response.json()
 
+            # Validate response structure
+            content = self._extract_content(data, model)
+
             # Record success
             await self.circuit_breaker.record_success(circuit_key)
 
-            # Extract response
-            result: Dict[str, Any] = {
-                "content": data["choices"][0]["message"]["content"]
-            }
+            # Build result
+            result: Dict[str, Any] = {"content": content}
 
             # Check for reasoning details (o1, etc.)
-            if "reasoning_content" in data["choices"][0]["message"]:
-                result["reasoning_details"] = data["choices"][0]["message"][
-                    "reasoning_content"
-                ]
+            try:
+                message = data["choices"][0]["message"]
+                if "reasoning_content" in message:
+                    result["reasoning_details"] = message["reasoning_content"]
+            except (KeyError, IndexError, TypeError):
+                pass  # No reasoning details available
+
+            # Extract and record token usage if available
+            usage = data.get("usage", {})
+            if usage:
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                result["usage"] = {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": usage.get("total_tokens", prompt_tokens + completion_tokens)
+                }
+                # Record to metrics
+                try:
+                    from ..metrics import record_token_usage
+                    record_token_usage(model, prompt_tokens, completion_tokens)
+                except ImportError:
+                    pass  # Metrics not available
 
             if self.config.log_responses:
                 logger.info(
@@ -277,10 +394,10 @@ class OpenRouterClient:
 
                     try:
                         chunk = json.loads(data)
-                        delta = chunk["choices"][0]["delta"]
+                        # Use validated extraction
+                        content = self._extract_stream_delta(chunk)
 
-                        if "content" in delta:
-                            content = delta["content"]
+                        if content is not None:
                             full_content += content
                             yield {
                                 "type": "content",
